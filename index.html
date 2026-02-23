@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
   <title>Cubs Season Ticket Share</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
@@ -12,6 +12,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #0E1C3D; }
+    /* Extend content into notch / status bar areas */
     button { cursor: pointer; font-family: inherit; }
     input { font-family: inherit; }
     ::-webkit-scrollbar { width: 4px; }
@@ -953,16 +954,18 @@ function App() {
   ];
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',maxWidth:480,margin:'0 auto',background:C.navy,color:C.cream,overflow:'hidden',position:'relative'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100dvh',maxWidth:480,margin:'0 auto',background:C.navy,color:C.cream,overflow:'hidden',position:'relative'}}>
 
       {/* ── HEADER ── */}
       <div style={{flexShrink:0,zIndex:10,position:'relative'}}>
 
-        {/* Wrigley photo — height transitions smoothly */}
+        {/* Wrigley photo — height transitions smoothly, extends behind status bar */}
         <div style={{
           height: photoH,
           overflow:'hidden', position:'relative', background:C.navyMid,
           transition:'height 0.3s cubic-bezier(0.4,0,0.2,1)',
+          marginTop: 'calc(-1 * env(safe-area-inset-top))',
+          paddingTop: 'env(safe-area-inset-top)',
         }}>
           {wrigleyB64 && (
             <img src={`data:image/jpeg;base64,${wrigleyB64}`} alt="Wrigley Field"
@@ -1045,7 +1048,7 @@ function App() {
         style={{
           position:'absolute',
           right:16,
-          bottom: 80,  // sits above the nav bar
+          bottom: 100,  // sits above the taller nav bar
           width:42, height:42,
           borderRadius:'50%',
           background: C.red,
@@ -1070,8 +1073,8 @@ function App() {
         flexShrink:0, background:C.navy,
         borderTop:`3px solid ${C.gold}`,
         display:'flex', zIndex:20,
-        // Extra bottom padding so taps clear the browser chrome on mobile
-        paddingBottom:'max(env(safe-area-inset-bottom), 12px)',
+        // Generous bottom padding: safe-area covers notch phones, 34px covers Safari URL bar
+        paddingBottom:'max(env(safe-area-inset-bottom), 34px)',
       }}>
         {NAV_TABS.map(([key,lbl,Icon])=>(
           <button key={key} onClick={()=>setTab(key)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,background:'none',border:'none',color:tab===key?C.gold:'rgba(245,240,232,0.3)',cursor:'pointer',padding:'11px 0 10px',transition:'color 0.15s',position:'relative'}}>
