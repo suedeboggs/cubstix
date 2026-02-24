@@ -256,6 +256,32 @@ const HOME_GAMES_2026 = [
 
 const SEASONS = { 2025: HOME_GAMES_2025, 2026: HOME_GAMES_2026 };
 const SEASON_YEARS = [2025, 2026];
+
+const GIVEAWAYS = {
+  '2026-03-26': { item: '2026 Cubs Magnet Schedule',              sponsor: null,                              desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-03-28': { item: 'Cubs Puffer Vest',                       sponsor: 'Presented by Southwest Airlines', desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-04-11': { item: 'Ben Zobrist Bobblehead',                 sponsor: 'Presented by Jewel-Osco',         desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-04-18': { item: 'Ron Santo Bobblehead',                   sponsor: 'Presented by Reynolds and Hefty', desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-05-02': { item: 'Kerry Wood Bobblehead',                  sponsor: 'Presented by Coca-Cola',          desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-05-03': { item: 'Cade Horton Graphic Tee',                sponsor: 'Presented by Motorola',           desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-05-24': { item: 'Ryne Sandberg Bobblehead',               sponsor: 'Presented by Southwest Airlines', desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-06-02': { item: 'ALS Awareness T-shirt',                  sponsor: 'Presented by Sloan',              desc: 'Up to the first 5,000 early arriving fans in the Budweiser Bleachers. Subject to availability.' },
+  '2026-06-05': { item: '#BudFridays Cubs 1910s Replica Jersey',  sponsor: 'Presented by Budweiser',          desc: 'Up to the first 5,000 early arriving fans 21+ in the Budweiser Bleachers. Subject to availability.' },
+  '2026-06-07': { item: 'Wrigley Field Replica Ballpark',         sponsor: 'Presented by Wendella',           desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-06-19': { item: '#BudFridays Cubs 1930s Replica Jersey',  sponsor: 'Presented by Budweiser',          desc: 'Up to the first 5,000 early arriving fans 21+ in the Budweiser Bleachers. Subject to availability.' },
+  '2026-06-21': { item: "Father's Day T-Shirt",                   sponsor: 'Presented by Advocate Health Care', desc: 'Up to the first 5,000 early arriving fans in the Budweiser Bleachers. Subject to availability.' },
+  '2026-07-05': { item: 'Clark the Cub Building Block Set',       sponsor: 'Presented by Southwest Airlines', desc: 'Up to the first 5,000 early arriving fans 13 and under. Subject to availability.' },
+  '2026-07-17': { item: '#BudFridays Cubs 1940s-50s Replica Jersey', sponsor: 'Presented by Budweiser',       desc: 'Up to the first 5,000 early arriving fans 21+ in the Budweiser Bleachers. Subject to availability.' },
+  '2026-07-22': { item: '2016 World Series Anniversary Surprise Pin', sponsor: 'Presented by Marriott Bonvoy', desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-07-31': { item: '#BudFridays Cubs 1960s Replica Jersey',  sponsor: 'Presented by Budweiser',          desc: 'Up to the first 5,000 early arriving fans 21+ in the Budweiser Bleachers. Subject to availability.' },
+  '2026-08-02': { item: 'Wrigley Field Marquee Night Light',      sponsor: 'Presented by Southwest Airlines', desc: 'Up to the first 5,000 early arriving fans 13 and under. Subject to availability.' },
+  '2026-08-14': { item: '#BudFridays Cubs 1980s Replica Jersey',  sponsor: 'Presented by Budweiser',          desc: 'Up to the first 5,000 early arriving fans 21+ in the Budweiser Bleachers. Subject to availability.' },
+  '2026-08-28': { item: '#BudFridays Cubs 1990s Replica Jersey',  sponsor: 'Presented by Budweiser',          desc: 'Up to the first 5,000 early arriving fans 21+ in the Budweiser Bleachers. Subject to availability.' },
+  '2026-08-30': { item: 'Harry Caray Bobblehead',                 sponsor: 'Presented by Benjamin Moore',     desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-09-13': { item: 'Sammy Sosa Bobblehead',                  sponsor: 'Presented by Wintrust',           desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+  '2026-09-24': { item: 'Fan Appreciation Day',                   sponsor: null,                              desc: 'Up to the first 10,000 early arriving fans. Subject to availability.' },
+};
+
 const DEFAULT_MEMBERS = ["Jon","Mike / Al","Long","Max","Brad / Taylor","Meg / Jeff","Barrett's"];
 const CUBS_TEAM_ID = 112;
 const STORAGE_KEY = "cubs-tracker-v7";
@@ -403,8 +429,9 @@ function GameCard({game, year, claimed, score, fetching, onClick}) {
 
       {/* Main info */}
       <div style={{flex:1,padding:'9px 11px',minWidth:0}}>
-        <div style={{fontSize:13.5,fontWeight:700,color:C.ink,fontFamily:"'Bebas Neue',sans-serif",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3}}>
-          vs. {game.opp}
+        <div style={{fontSize:13.5,fontWeight:700,color:C.ink,fontFamily:"'Bebas Neue',sans-serif",lineHeight:1.3,display:'flex',alignItems:'center',gap:5,overflow:'hidden'}}>
+          <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>vs. {game.opp}</span>
+          {GIVEAWAYS[game.mlbDate] && <span style={{flexShrink:0,fontSize:13}}>🔔</span>}
         </div>
         <div style={{fontSize:11,color:C.muted,marginTop:3,fontFamily:"'Montserrat',sans-serif"}}>
           {game.time}
@@ -564,6 +591,28 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
             ))}
           </div>
         </div>
+
+
+        {/* Giveaway section */}
+        {GIVEAWAYS[game.mlbDate] && (() => {
+          const gw = GIVEAWAYS[game.mlbDate];
+          return (
+            <div style={{margin:'0 16px 14px',borderRadius:6,overflow:'hidden',border:`1px solid ${C.border}`}}>
+              <div style={{background:C.green,padding:'10px 14px'}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.cream,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.25em'}}>🔔 DING! DING! DING!</div>
+              </div>
+              <div style={{background:C.cream2,padding:'12px 14px'}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.ink,fontFamily:"'Bebas Neue',sans-serif",marginBottom:4}}>{gw.item}</div>
+                {gw.sponsor && <div style={{fontSize:10,color:C.blue,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',marginBottom:8}}>{gw.sponsor}</div>}
+                <div style={{fontSize:12,color:C.muted,fontFamily:"'Montserrat',sans-serif",lineHeight:1.6}}>{gw.desc}</div>
+                <a href="https://www.mlb.com/cubs/tickets/promotions/gate-giveaways" target="_blank" rel="noopener noreferrer"
+                  style={{display:'inline-block',marginTop:10,fontSize:11,color:C.blue,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',textDecoration:'none',borderBottom:`1px solid ${C.blue}`}}>
+                  VIEW ALL GATE GIVEAWAYS ↗
+                </a>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         <div style={{display:'flex',gap:10,padding:'12px 16px',borderTop:`1px solid ${C.border}`,background:C.cream,flexShrink:0}}>
@@ -932,7 +981,7 @@ function StandingsTab() {
   );
 }
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function RosterTab({members, setMembers, onRefresh, lastUpdated}) {
+function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated}) {
   const [newName, setNewName]   = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue]   = useState('');
@@ -945,9 +994,8 @@ function RosterTab({members, setMembers, onRefresh, lastUpdated}) {
   const commitEdit = () => {
     const n = editValue.trim();
     if (n && editingIdx !== null) {
-      const updated = [...members];
-      updated[editingIdx] = n;
-      setMembers(updated);
+      const oldName = members[editingIdx];
+      if (n !== oldName) renameMember(oldName, n);
     }
     setEditingIdx(null);
   };
@@ -1110,6 +1158,15 @@ function App() {
     });
   };
   const setMembers = ms => setState(prev => ({...prev, members:ms}));
+  const renameMember = (oldName, newName) => setState(prev => {
+    // Update the members list
+    const members = prev.members.map(m => m === oldName ? newName : m);
+    // Re-key every claim that was assigned to oldName
+    const claims = Object.fromEntries(
+      Object.entries(prev.claims).map(([k, v]) => [k, v === oldName ? newName : v])
+    );
+    return {...prev, members, claims};
+  });
 
   const games = SEASONS[year];
   const winsThisYear   = Object.entries(allScores).filter(([k,s])=>k.startsWith(`${year}-`)&&s?.result==='W').length;
@@ -1227,7 +1284,7 @@ function App() {
         {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='board'    && <LeaderboardTab  claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='standings' && <StandingsTab/>}
-        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} onRefresh={fetchAllScores} lastUpdated={lastUpdated}/>}
+        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated}/>}
       </div>
 
       {/* ── SCROLL TO TOP FAB ── */}
