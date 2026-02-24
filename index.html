@@ -1430,9 +1430,10 @@ function App() {
         width:'100%', maxWidth:480,
         zIndex:100,
       }}>
-        {/* Photo — fills behind status bar; top:0 with viewport-fit=cover reaches physical screen edge */}
+        {/* Photo — pulls up by safe-area-inset-top so image fills behind dynamic island/status bar */}
         <div style={{
-          height: `${photoH}px`,
+          height: `calc(${photoH}px + env(safe-area-inset-top))`,
+          marginTop: 'calc(-1 * env(safe-area-inset-top))',
           overflow:'hidden', position:'relative', background:C.blue,
           transition:'height 0.35s cubic-bezier(0.4,0,0.2,1)',
         }}>
@@ -1502,7 +1503,7 @@ function App() {
 
       {/* ── PAGE CONTENT — pushed down by fixed header height ── */}
       <div style={{
-        paddingTop: `calc(${photoH}px + 3px + ${yearBarVisible ? 88 : 0}px)`,
+        paddingTop: `calc(${photoH}px + 3px + ${yearBarVisible ? 88 : 0}px + env(safe-area-inset-top))`,
         paddingBottom: `calc(${NAV_H}px + env(safe-area-inset-bottom) + 8px)`,
         transition: 'padding-top 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
