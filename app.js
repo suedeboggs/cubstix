@@ -334,11 +334,34 @@ const MONTH_ORDER = ['MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','O
 const MONTH_ABBR = {MARCH:'Mar',APRIL:'Apr',MAY:'May',JUNE:'Jun',JULY:'Jul',AUGUST:'Aug',SEPTEMBER:'Sep',OCTOBER:'Oct'};
 
 // ─── STATE ──────────────────────────────────────────────────────────────────
+const CLAIMS_2026 = {
+  "2026-1":"Long","2026-2":"Max","2026-3":"Brad / Taylor","2026-4":"Long",
+  "2026-5":"Brad / Taylor","2026-6":"Meg / Jeff","2026-7":"Long","2026-8":"Max",
+  "2026-9":"Brad / Taylor","2026-10":"Jon","2026-11":"Barrett's","2026-12":"Mike / Al",
+  "2026-13":"Meg / Jeff","2026-14":"Barrett's","2026-15":"Jon","2026-16":"Mike / Al",
+  "2026-17":"Barrett's","2026-18":"Meg / Jeff","2026-19":"Max","2026-20":"Long",
+  "2026-21":"Jon","2026-22":"Brad / Taylor","2026-23":"Mike / Al","2026-24":"Long",
+  "2026-25":"Jon","2026-26":"Brad / Taylor","2026-27":"Max","2026-28":"Meg / Jeff",
+  "2026-29":"Barrett's","2026-30":"Meg / Jeff","2026-31":"Mike / Al","2026-32":"Brad / Taylor",
+  "2026-33":"Max","2026-34":"Barrett's","2026-35":"Meg / Jeff","2026-36":"Long",
+  "2026-37":"Mike / Al","2026-38":"Meg / Jeff","2026-39":"Long","2026-40":"Jon",
+  "2026-41":"Max","2026-42":"Mike / Al","2026-43":"Jon","2026-44":"Meg / Jeff",
+  "2026-45":"Barrett's","2026-46":"Max","2026-47":"Brad / Taylor","2026-48":"Long",
+  "2026-49":"Meg / Jeff","2026-50":"Max","2026-51":"Brad / Taylor","2026-52":"Jon",
+  "2026-53":"Mike / Al","2026-54":"Barrett's","2026-55":"Meg / Jeff","2026-56":"Mike / Al",
+  "2026-57":"Long","2026-58":"Barrett's","2026-59":"Brad / Taylor","2026-60":"Jon",
+  "2026-61":"Max","2026-62":"Jon","2026-63":"Max","2026-64":"Meg / Jeff",
+  "2026-65":"Barrett's","2026-66":"Barrett's","2026-67":"Meg / Jeff","2026-68":"Mike / Al",
+  "2026-69":"Long","2026-70":"Barrett's","2026-71":"Max","2026-72":"Mike / Al",
+  "2026-73":"Long","2026-74":"Jon","2026-75":"Brad / Taylor","2026-76":"Jon",
+  "2026-77":"Mike / Al","2026-78":"Max","2026-79":"Brad / Taylor","2026-80":"Brad / Taylor",
+  "2026-81":"Long",
+};
+
 function buildInitialState() {
-  const claims = {}, scores = {};
+  const claims = {...CLAIMS_2026}, scores = {};
   HOME_GAMES_2024.forEach(g => {
     if (g.who) claims[`2024-${g.id}`] = g.who;
-    // 2024 scores not in app — will show as unresolved past games
   });
   HOME_GAMES_2025.forEach(g => {
     claims[`2025-${g.id}`] = g.who;
