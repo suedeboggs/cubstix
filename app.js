@@ -405,6 +405,23 @@ async function fetchGameDetails(mlbDate, gameType='R') {
 // SpringTrainingTab removed — spring training games are not shown
 
 // ─── UTILITY COMPONENTS ─────────────────────────────────────────────────────
+// ─── SHARED HELPERS ──────────────────────────────────────────────────────────
+const yearBtnStyle = (isActive) => ({
+  flex:1, background:isActive?C.blue:'transparent',
+  border:`1.5px solid ${isActive?C.blue:C.border}`, borderRadius:8,
+  color:isActive?C.cream:C.ink, padding:'6px 0', fontSize:15,
+  fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.1em',
+  fontWeight:700, cursor:'pointer', transition:'all 0.15s',
+});
+
+const yearsFor = (val) => val === 'all' ? SEASON_YEARS : [Number(val)];
+
+const calcRunDiff = (finalScores) => {
+  const cR = finalScores.reduce((a,s) => a+(s.cubsRuns??0), 0);
+  const oR = finalScores.reduce((a,s) => a+(s.oppRuns??0), 0);
+  return cR - oR;
+};
+
 const Spinner = ({size=14,color=C.blue}) => (
   <div style={{width:size,height:size,border:`2px solid rgba(14,51,134,0.15)`,borderTopColor:color,borderRadius:'50%',animation:'spin 0.7s linear infinite',flexShrink:0}}/>
 );
@@ -514,6 +531,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
   const [loadingDetails, setLoadingDetails] = useState(false);
   const past = isInPast(game.mlbDate);
   const isFinal = score?.status === 'Final';
+  const giveaway = GIVEAWAYS[game.mlbDate] || null;
 
   useEffect(() => {
     if (isFinal && !details) {
@@ -655,25 +673,22 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
 
 
         {/* Giveaway section */}
-        {GIVEAWAYS[game.mlbDate] && (() => {
-          const gw = GIVEAWAYS[game.mlbDate];
-          return (
+        {giveaway && (
             <div style={{margin:'0 16px 14px',borderRadius:6,overflow:'hidden',border:`1px solid ${C.border}`}}>
               <div style={{background:C.green,padding:'10px 14px'}}>
                 <div style={{fontSize:14,fontWeight:700,color:C.cream,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.25em'}}>🔔 DING! DING! DING!</div>
               </div>
               <div style={{background:C.cream2,padding:'12px 14px'}}>
-                <div style={{fontSize:16,fontWeight:700,color:C.ink,fontFamily:"'Bebas Neue',sans-serif",marginBottom:4}}>{gw.item}</div>
-                {gw.sponsor && <div style={{fontSize:12,color:C.blue,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',marginBottom:8}}>{gw.sponsor}</div>}
-                <div style={{fontSize:14,color:C.muted,fontFamily:"'Montserrat',sans-serif",lineHeight:1.6}}>{gw.desc}</div>
+                <div style={{fontSize:16,fontWeight:700,color:C.ink,fontFamily:"'Bebas Neue',sans-serif",marginBottom:4}}>{giveaway.item}</div>
+                {giveaway.sponsor && <div style={{fontSize:12,color:C.blue,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',marginBottom:8}}>{giveaway.sponsor}</div>}
+                <div style={{fontSize:14,color:C.muted,fontFamily:"'Montserrat',sans-serif",lineHeight:1.6}}>{giveaway.desc}</div>
                 <a href="https://www.mlb.com/cubs/tickets/promotions/gate-giveaways" target="_blank" rel="noopener noreferrer"
                   style={{display:'inline-block',marginTop:10,fontSize:15,color:C.blue,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',textDecoration:'none',borderBottom:`1px solid ${C.blue}`}}>
                   VIEW ALL GATE GIVEAWAYS ↗
                 </a>
               </div>
             </div>
-          );
-        })()}
+        )}
 
         {/* Footer */}
         <div style={{display:'flex',gap:10,padding:'12px 16px',borderTop:`1px solid ${C.border}`,background:C.cream,flexShrink:0}}>
@@ -856,21 +871,17 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
 // ─── STATS TAB ───────────────────────────────────────────────────────────────
 function StatsTab({claims, scores, members}) {
   const [statYear, setStatYear] = useState('all');
-  const YEAR_OPTS = [...SEASON_YEARS, 'all'];
 
   const stats = React.useMemo(() => {
     return members.map(m => {
-      const yrs = statYear === 'all' ? SEASON_YEARS : [Number(statYear)];
       let wins=0, losses=0, runDiff=0, totalCost=0;
-      yrs.forEach(yr => {
+      yearsFor(statYear).forEach(yr => {
         const gms = SEASONS[yr].filter(g => claims[`${yr}-${g.id}`] === m);
         totalCost += gms.reduce((a, g) => a + (g.price || 0), 0);
         const scs = gms.map(g => scores[`${yr}-${g.id}`]).filter(s => s?.status === 'Final');
         wins   += scs.filter(s => s.result === 'W').length;
         losses += scs.filter(s => s.result === 'L').length;
-        const cR = scs.reduce((a,s) => a+(s.cubsRuns??0), 0);
-        const oR = scs.reduce((a,s) => a+(s.oppRuns??0), 0);
-        runDiff += cR - oR;
+        runDiff += calcRunDiff(scs);
       });
             const costPerWin = (wins > 0 && totalCost > 0) ? totalCost / wins : null;
       return {name:m, played:wins+losses, wins, losses, runDiff, totalCost, costPerWin};
@@ -889,8 +900,7 @@ function StatsTab({claims, scores, members}) {
       {/* Year filter */}
       <div style={{display:'flex',gap:6,marginBottom:16}}>
         {['all',...SEASON_YEARS].map(yr => (
-          <button key={yr} onClick={()=>setStatYear(yr)}
-            style={{flex:1,background:statYear===yr?C.blue:'transparent',border:`1.5px solid ${statYear===yr?C.blue:C.border}`,borderRadius:8,color:statYear===yr?C.cream:C.ink,padding:'6px 0',fontSize:15,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',fontWeight:700,cursor:'pointer',transition:'all 0.15s'}}>
+          <button key={yr} onClick={()=>setStatYear(yr)} style={yearBtnStyle(statYear===yr)}>
             {yr==='all'?'ALL TIME':yr}
           </button>
         ))}
@@ -934,24 +944,20 @@ function StatsTab({claims, scores, members}) {
 // ─── LEADERBOARD TAB ─────────────────────────────────────────────────────────
 function LeaderboardTab({claims, scores, members}) {
   const [boardYear, setBoardYear] = useState('all');
-  const YEAR_OPTS = [...SEASON_YEARS, 'all'];
 
-  const ranked = members.map(m => {
-    const yrs = boardYear === 'all' ? SEASON_YEARS : [Number(boardYear)];
+  const ranked = React.useMemo(() => members.map(m => {
     let wins=0,losses=0,runDiff=0;
-    yrs.forEach(yr => {
+    yearsFor(boardYear).forEach(yr => {
       const gms = SEASONS[yr].filter(g => claims[`${yr}-${g.id}`] === m);
       const scs = gms.map(g => scores[`${yr}-${g.id}`]).filter(s => s?.status==='Final');
       wins   += scs.filter(s=>s.result==='W').length;
       losses += scs.filter(s=>s.result==='L').length;
-      const cR = scs.reduce((a,s)=>a+(s.cubsRuns??0),0);
-      const oR = scs.reduce((a,s)=>a+(s.oppRuns??0),0);
-      runDiff += cR-oR;
+      runDiff += calcRunDiff(scs);
     });
     const played = wins+losses;
     const winPct = played>0 ? wins/played : 0;
     return {name:m, wins, losses, played, runDiff, winPct};
-  }).sort((a,b)=>b.winPct-a.winPct||b.wins-a.wins);
+  }).sort((a,b)=>b.winPct-a.winPct||b.wins-a.wins), [members, claims, scores, boardYear]);
 
   const MEDAL = ['🥇','🥈','🥉'];
 
@@ -960,8 +966,7 @@ function LeaderboardTab({claims, scores, members}) {
       {/* Year filter */}
       <div style={{display:'flex',gap:6,marginBottom:16}}>
         {['all',...SEASON_YEARS].map(yr => (
-          <button key={yr} onClick={()=>setBoardYear(yr)}
-            style={{flex:1,background:boardYear===yr?C.blue:'transparent',border:`1.5px solid ${boardYear===yr?C.blue:C.border}`,borderRadius:8,color:boardYear===yr?C.cream:C.ink,padding:'6px 0',fontSize:15,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',fontWeight:700,cursor:'pointer',transition:'all 0.15s'}}>
+          <button key={yr} onClick={()=>setBoardYear(yr)} style={yearBtnStyle(boardYear===yr)}>
             {yr==='all'?'ALL TIME':yr}
           </button>
         ))}
@@ -1003,6 +1008,12 @@ const NL_CENTRAL_IDS = {
   138: {name:'St. Louis',   abbr:'STL'},
   113: {name:'Cincinnati',  abbr:'CIN'},
   134: {name:'Pittsburgh',  abbr:'PIT'},
+};
+
+const COL_HDR = {
+  background:C.green, color:C.cream,
+  fontFamily:"'Bebas Neue',sans-serif", fontSize:12,
+  letterSpacing:'0.12em', padding:'8px 6px', textAlign:'center'
 };
 
 function StandingsTab() {
@@ -1067,12 +1078,6 @@ function StandingsTab() {
   }, []);
 
   useEffect(() => { fetchStandings(); }, [fetchStandings]);
-
-  const COL_HDR = {
-    background:C.green, color:C.cream,
-    fontFamily:"'Bebas Neue',sans-serif", fontSize:12,
-    letterSpacing:'0.12em', padding:'8px 6px', textAlign:'center'
-  };
 
   return (
     <div style={{padding:'14px 12px 16px'}}>
@@ -1548,7 +1553,7 @@ function App() {
         }}>
           <div style={{display:'flex',padding:'8px 12px 6px',gap:6}}>
             {SEASON_YEARS.map(yr => (
-              <button key={yr} onClick={()=>setYear(yr)} style={{flex:1,background:year===yr?C.blue:'transparent',border:`1.5px solid ${year===yr?C.blue:C.border}`,borderRadius:8,color:year===yr?C.cream:C.ink,padding:'6px 0',fontSize:15,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',fontWeight:700,cursor:'pointer',transition:'all 0.15s'}}>
+              <button key={yr} onClick={()=>setYear(yr)} style={yearBtnStyle(year===yr)}>
                 {yr}
               </button>
             ))}
