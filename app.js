@@ -376,6 +376,26 @@ const GIVEAWAYS = {
 };
 
 const DEFAULT_MEMBERS = ["Jon","Mike / Al","Long","Max","Brad / Taylor","Meg / Jeff","Barrett's"];
+
+// Default sub-group members for each share-holder (editable in Settings)
+const INITIAL_SUBGROUPS = {
+  "Barrett's": ["Mary", "Jimmy"],
+};
+// Pre-assigned 2026 games per sub-member
+const INITIAL_SUBCLAIMS = {
+  "2026-11": "Mary",  // 4/18 vs Mets
+  "2026-29": "Mary",  // 5/24 vs Astros
+  "2026-34": "Mary",  // 6/6 vs Giants
+  "2026-45": "Mary",  // 7/3 vs Cardinals
+  "2026-65": "Mary",  // 8/19 vs White Sox
+  "2026-14": "Jimmy", // 4/21 vs Phillies
+  "2026-17": "Jimmy", // 5/1 vs Diamondbacks
+  "2026-54": "Jimmy", // 7/31 vs Yankees
+  "2026-58": "Jimmy", // 8/4 vs Dodgers
+  "2026-66": "Jimmy", // 8/28 vs Reds
+  "2026-70": "Jimmy", // 9/1 vs Brewers
+};
+
 const CUBS_TEAM_ID = 112;
 const STORAGE_KEY = "cubs-tracker-v8";
 const MONTH_ORDER = ['MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER'];
@@ -415,7 +435,7 @@ function buildInitialState() {
     claims[`2025-${g.id}`] = g.who;
     scores[`2025-${g.id}`] = {status:'Final', result:g.R, cubsRuns:g.cR, oppRuns:g.oR};
   });
-  return { claims, members: DEFAULT_MEMBERS, cachedScores: scores, beers: {} };
+  return { claims, members: DEFAULT_MEMBERS, cachedScores: scores, beers: {}, subgroups: {...INITIAL_SUBGROUPS}, subclaims: {...INITIAL_SUBCLAIMS} };
 }
 
 function loadState() {
@@ -424,6 +444,8 @@ function loadState() {
     if (r) {
       const saved = JSON.parse(r);
       saved.claims = { ...CLAIMS_2026, ...saved.claims };
+      saved.subclaims = { ...INITIAL_SUBCLAIMS, ...(saved.subclaims || {}) };
+      if (!saved.subgroups) saved.subgroups = {...INITIAL_SUBGROUPS};
       return saved;
     }
   } catch {}
@@ -542,7 +564,7 @@ function ResultBadge({result, cubsRuns, oppRuns, size='sm'}) {
 }
 
 // ─── GAME CARD ────────────────────────────────────────────────────────────────
-function GameCard({game, year, claimed, score, fetching, onClick}) {
+function GameCard({game, year, claimed, subclaim, score, fetching, onClick}) {
   const C = React.useContext(ThemeContext);
   const past = isInPast(game.mlbDate);
   const isWin  = score?.result === 'W';
@@ -582,7 +604,7 @@ function GameCard({game, year, claimed, score, fetching, onClick}) {
         <div style={{fontSize:15,color:C.muted,marginTop:3,fontFamily:"'Montserrat',sans-serif"}}>
           {game.time}
           {claimed
-            ? <span style={{color:C.blue,fontWeight:700}}> · {claimed}</span>
+            ? <span style={{color:C.blue,fontWeight:700}}> · {claimed}{subclaim ? <span style={{color:C.blueLight,fontWeight:500}}> · {subclaim}</span> : null}</span>
             : <span style={{color:C.border}}> · Unassigned</span>}
         </div>
         {game.ticketType && (
@@ -605,16 +627,23 @@ function GameCard({game, year, claimed, score, fetching, onClick}) {
 }
 
 // ─── GAME DETAIL MODAL ───────────────────────────────────────────────────────
-function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onSave, beers, onBeer}) {
+function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onSave, beers, onBeer, subgroups, subclaims, onSubclaim}) {
   const C = React.useContext(ThemeContext);
   const [selected, setSelected] = useState(claimed || '');
+  const gameKey = `${year}-${game.id}`;
+  const [selectedSub, setSelectedSub] = useState((subclaims && subclaims[gameKey]) || '');
   const [details, setDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const past = isInPast(game.mlbDate);
   const isFinal = score?.status === 'Final';
   const giveaway = GIVEAWAYS[game.mlbDate] || null;
-  const gameKey = `${year}-${game.id}`;
   const beerCount = (beers && beers[gameKey]) || 0;
+  const currentSubMembers = (subgroups && selected && subgroups[selected]) || [];
+
+  // Clear sub-member when selected holder changes and has no sub-group
+  useEffect(() => {
+    if (!subgroups || !subgroups[selected]) setSelectedSub('');
+  }, [selected]);
 
   useEffect(() => {
     if (isFinal && !details) {
@@ -753,6 +782,25 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
             ))}
           </div>
 
+          {/* Sub-member picker — only shown when selected holder has sub-members */}
+          {currentSubMembers.length > 0 && (
+            <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
+              <div style={{fontSize:13,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10}}>WHO'S ATTENDING</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                <button
+                  onClick={() => setSelectedSub('')}
+                  style={{background:selectedSub===''?C.muted:'transparent',border:`1.5px solid ${selectedSub===''?C.muted:C.border}`,borderRadius:20,color:selectedSub===''?'#fff':C.ink,padding:'6px 13px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
+                >— Unknown</button>
+                {currentSubMembers.map(sub => (
+                  <button key={sub}
+                    onClick={() => setSelectedSub(sub)}
+                    style={{background:selectedSub===sub?C.blueMid:'transparent',border:`1.5px solid ${selectedSub===sub?C.blueMid:C.border}`,borderRadius:20,color:selectedSub===sub?'#fff':C.ink,padding:'6px 13px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
+                  >{sub}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Beer Tracker */}
           <div style={{marginTop:20,marginBottom:4}}>
             <div style={{fontSize:13,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10}}>🍺 BEER TRACKER</div>
@@ -797,7 +845,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
         <div style={{display:'flex',gap:10,padding:'12px 16px',borderTop:`1px solid ${C.border}`,background:C.cream,flexShrink:0}}>
           <button onClick={onClose} style={{flex:1,background:'transparent',border:`1.5px solid ${C.border}`,borderRadius:5,color:C.muted,padding:'12px 0',fontSize:15,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}>Cancel</button>
           <button
-            onClick={() => { onSave(game.id, year, selected); onClose(); }}
+            onClick={() => { onSave(game.id, year, selected); if (onSubclaim) onSubclaim(game.id, year, currentSubMembers.length > 0 ? selectedSub : ''); onClose(); }}
             style={{flex:2,background:C.blue,border:'none',borderRadius:5,color:C.cream,padding:'12px 0',fontSize:15,fontWeight:700,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',cursor:'pointer'}}
           >SAVE</button>
         </div>
@@ -807,7 +855,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
 }
 
 // ─── SCHEDULE TAB ────────────────────────────────────────────────────────────
-function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameClick}) {
+function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameClick, subclaims}) {
   const C = React.useContext(ThemeContext);
   const [monthFilter, setMonthFilter] = useState('all');
   const [memberFilter, setMemberFilter] = useState('all');
@@ -959,7 +1007,7 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
             <div style={{display:'flex',flexDirection:'column',gap:7,marginBottom:4}}>
               {gms.map(g => {
                 const key = `${year}-${g.id}`;
-                return <GameCard key={g.id} game={g} year={year} claimed={claims[key]} score={scores[key]} fetching={fetchingIds.has(key)} onClick={() => onGameClick(g)}/>;
+                return <GameCard key={g.id} game={g} year={year} claimed={claims[key]} subclaim={(subclaims||{})[key]} score={scores[key]} fetching={fetchingIds.has(key)} onClick={() => onGameClick(g)}/>;
               })}
             </div>
           </div>
@@ -1291,20 +1339,27 @@ function StandingsTab() {
   );
 }
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, onToggleDark, fbReady}) {
+function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, onToggleDark, fbReady, subgroups, onAddSubMember, onRemoveSubMember, onRenameSubMember}) {
   const C = React.useContext(ThemeContext);
   const isDark = C === C_DARK;
   const [newName, setNewName]   = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
-  const [editValue, setEditValue]   = useState('');
+  const editRef = useRef(null);
+
+  // Sub-member state
+  const [addingSubFor, setAddingSubFor]   = useState(null); // member name
+  const [newSubName,   setNewSubName]     = useState('');
+  const [editingSub,   setEditingSub]     = useState(null); // "memberName::subName"
+  const editSubRef = useRef(null);
 
   const add = () => {
     const n = newName.trim();
     if (n && !members.includes(n)) { setMembers([...members,n]); setNewName(''); }
   };
-  const startEdit = (i) => { setEditingIdx(i); setEditValue(members[i]); };
+  // Uncontrolled input fix — read from ref on commit instead of tracking value state
+  const startEdit = (i) => { setEditingIdx(i); };
   const commitEdit = () => {
-    const n = editValue.trim();
+    const n = (editRef.current?.value || '').trim();
     if (n && editingIdx !== null) {
       const oldName = members[editingIdx];
       if (n !== oldName) renameMember(oldName, n);
@@ -1312,6 +1367,18 @@ function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, o
     setEditingIdx(null);
   };
   const cancelEdit = () => setEditingIdx(null);
+
+  // Sub-member helpers
+  const startAddSub   = (m)  => { setAddingSubFor(m); setNewSubName(''); };
+  const cancelAddSub  = ()   => { setAddingSubFor(null); setNewSubName(''); };
+  const commitAddSub  = (m)  => { if (newSubName.trim()) onAddSubMember(m, newSubName.trim()); cancelAddSub(); };
+  const startEditSub  = (m, sub) => { setEditingSub(`${m}::${sub}`); };
+  const cancelEditSub = ()   => setEditingSub(null);
+  const commitEditSub = (m, oldSub) => {
+    const n = (editSubRef.current?.value || '').trim();
+    if (n && n !== oldSub) onRenameSubMember(m, oldSub, n);
+    cancelEditSub();
+  };
 
   const avatarLetter = name => name.replace(/\s*\/.*$/,'').trim()[0].toUpperCase();
 
@@ -1338,33 +1405,85 @@ function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, o
     <div style={{padding:'14px 12px 16px'}}>
 
       <Section title="GROUP MEMBERS">
-        {members.map((m,i) => (
-          <div key={i} style={{
-            display:'flex', alignItems:'center', gap:8,
-            padding:'9px 0',
-            borderBottom: i < members.length-1 ? '1px solid rgba(255,255,255,0.2)' : 'none'
-          }}>
-            <div style={{width:32,height:32,borderRadius:4,background:'rgba(255,255,255,0.15)',color:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:17,fontFamily:"'Bebas Neue',sans-serif",flexShrink:0,border:'1px solid rgba(255,255,255,0.25)'}}>{avatarLetter(m)}</div>
-            {editingIdx === i ? (
-              <>
-                <input
-                  autoFocus
-                  value={editValue} onChange={e=>setEditValue(e.target.value)}
-                  onKeyDown={e=>{ if(e.key==='Enter') commitEdit(); if(e.key==='Escape') cancelEdit(); }}
-                  style={{...inputStyle, flex:1}}
-                />
-                <button onClick={commitEdit} style={{background:'rgba(255,255,255,0.25)',border:'1px solid rgba(255,255,255,0.5)',color:'#fff',fontSize:15,cursor:'pointer',padding:'5px 10px',borderRadius:3,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.05em'}}>SAVE</button>
-                <button onClick={cancelEdit} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.5)',fontSize:14,cursor:'pointer',padding:'5px 8px',borderRadius:3}}>✕</button>
-              </>
-            ) : (
-              <>
-                <span style={{flex:1,fontSize:16,color:'#fff',fontFamily:"'Montserrat',sans-serif",fontWeight:500}}>{m}</span>
-                <button onClick={()=>startEdit(i)} style={{background:'none',border:'1px solid rgba(255,255,255,0.25)',color:'rgba(255,255,255,0.6)',fontSize:13,cursor:'pointer',padding:'4px 9px',borderRadius:3,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.05em'}}>EDIT</button>
-                <button onClick={()=>setMembers(members.filter((_,j)=>j!==i))} style={{background:'none',border:'1px solid rgba(255,255,255,0.25)',color:'rgba(255,255,255,0.4)',fontSize:15,cursor:'pointer',padding:'4px 8px',borderRadius:3,lineHeight:1}}>✕</button>
-              </>
-            )}
-          </div>
-        ))}
+        {members.map((m,i) => {
+          const subs = (subgroups && subgroups[m]) || [];
+          return (
+            <div key={i} style={{borderBottom: i < members.length-1 ? '1px solid rgba(255,255,255,0.2)' : 'none', paddingBottom:subs.length||addingSubFor===m?10:0, marginBottom:subs.length||addingSubFor===m?4:0}}>
+              {/* Main member row */}
+              <div style={{display:'flex', alignItems:'center', gap:8, padding:'9px 0 0'}}>
+                <div style={{width:32,height:32,borderRadius:4,background:'rgba(255,255,255,0.15)',color:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:17,fontFamily:"'Bebas Neue',sans-serif",flexShrink:0,border:'1px solid rgba(255,255,255,0.25)'}}>{avatarLetter(m)}</div>
+                {editingIdx === i ? (
+                  <>
+                    <input
+                      ref={editRef}
+                      autoFocus
+                      key={`edit-${i}-${m}`}
+                      defaultValue={m}
+                      onKeyDown={e=>{ if(e.key==='Enter') commitEdit(); if(e.key==='Escape') cancelEdit(); }}
+                      style={{...inputStyle, flex:1}}
+                    />
+                    <button onClick={commitEdit} style={{background:'rgba(255,255,255,0.25)',border:'1px solid rgba(255,255,255,0.5)',color:'#fff',fontSize:15,cursor:'pointer',padding:'5px 10px',borderRadius:3,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.05em'}}>SAVE</button>
+                    <button onClick={cancelEdit} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.5)',fontSize:14,cursor:'pointer',padding:'5px 8px',borderRadius:3}}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{flex:1,fontSize:16,color:'#fff',fontFamily:"'Montserrat',sans-serif",fontWeight:500}}>{m}</span>
+                    <button onClick={()=>startEdit(i)} style={{background:'none',border:'1px solid rgba(255,255,255,0.25)',color:'rgba(255,255,255,0.6)',fontSize:13,cursor:'pointer',padding:'4px 9px',borderRadius:3,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.05em'}}>EDIT</button>
+                    <button onClick={()=>setMembers(members.filter((_,j)=>j!==i))} style={{background:'none',border:'1px solid rgba(255,255,255,0.25)',color:'rgba(255,255,255,0.4)',fontSize:15,cursor:'pointer',padding:'4px 8px',borderRadius:3,lineHeight:1}}>✕</button>
+                  </>
+                )}
+              </div>
+
+              {/* Sub-members */}
+              {subs.map(sub => {
+                const isEditingSub = editingSub === `${m}::${sub}`;
+                return (
+                  <div key={sub} style={{display:'flex',alignItems:'center',gap:6,marginTop:5,marginLeft:40}}>
+                    <div style={{width:5,height:5,borderRadius:'50%',background:'rgba(255,255,255,0.35)',flexShrink:0}}/>
+                    {isEditingSub ? (
+                      <>
+                        <input
+                          ref={editSubRef}
+                          autoFocus
+                          key={`editsub-${m}-${sub}`}
+                          defaultValue={sub}
+                          onKeyDown={e=>{ if(e.key==='Enter') commitEditSub(m,sub); if(e.key==='Escape') cancelEditSub(); }}
+                          style={{...inputStyle, flex:1, fontSize:13, padding:'4px 8px'}}
+                        />
+                        <button onClick={()=>commitEditSub(m,sub)} style={{background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)',color:'#fff',fontSize:12,cursor:'pointer',padding:'3px 8px',borderRadius:3,fontFamily:"'Bebas Neue',sans-serif"}}>SAVE</button>
+                        <button onClick={cancelEditSub} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.4)',fontSize:13,cursor:'pointer',padding:'3px 6px',borderRadius:3}}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{flex:1,fontSize:14,color:'rgba(255,255,255,0.8)',fontFamily:"'Montserrat',sans-serif"}}>{sub}</span>
+                        <button onClick={()=>startEditSub(m,sub)} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.5)',fontSize:12,cursor:'pointer',padding:'2px 7px',borderRadius:3,fontFamily:"'Bebas Neue',sans-serif"}}>EDIT</button>
+                        <button onClick={()=>onRemoveSubMember(m,sub)} style={{background:'none',border:'1px solid rgba(255,255,255,0.15)',color:'rgba(255,255,255,0.35)',fontSize:13,cursor:'pointer',padding:'2px 6px',borderRadius:3,lineHeight:1}}>✕</button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Add sub-member */}
+              {addingSubFor === m ? (
+                <div style={{display:'flex',gap:6,marginTop:6,marginLeft:40}}>
+                  <input
+                    autoFocus
+                    value={newSubName}
+                    onChange={e=>setNewSubName(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') commitAddSub(m); if(e.key==='Escape') cancelAddSub(); }}
+                    placeholder="Name..."
+                    style={{...inputStyle, flex:1, fontSize:13, padding:'5px 8px'}}
+                  />
+                  <button onClick={()=>commitAddSub(m)} style={{background:'rgba(255,255,255,0.2)',border:'1.5px solid rgba(255,255,255,0.5)',borderRadius:4,color:'#fff',fontSize:13,padding:'5px 10px',fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.05em',cursor:'pointer'}}>ADD</button>
+                  <button onClick={cancelAddSub} style={{background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.4)',fontSize:13,cursor:'pointer',padding:'5px 8px',borderRadius:4}}>✕</button>
+                </div>
+              ) : (
+                <button onClick={()=>startAddSub(m)} style={{marginTop:6,marginLeft:40,background:'none',border:'1px dashed rgba(255,255,255,0.3)',color:'rgba(255,255,255,0.45)',fontSize:12,cursor:'pointer',padding:'3px 9px',borderRadius:3,fontFamily:"'Montserrat',sans-serif"}}>+ sub-member</button>
+              )}
+            </div>
+          );
+        })}
 
         {/* Add new */}
         <div style={{display:'flex',gap:8,marginTop:14}}>
@@ -1605,9 +1724,15 @@ function App() {
       if (skipRead.current) { skipRead.current = false; return; }
       const data = snap.val();
       if (data) {
-        // Merge CLAIMS_2026 as defaults so new seasons always appear
+        // Merge defaults so new seasons / new fields always appear
         skipWrite.current = true;
-        setState(prev => ({ ...data, claims: { ...CLAIMS_2026, ...data.claims } }));
+        setState(prev => ({
+          ...data,
+          claims:    { ...CLAIMS_2026,       ...data.claims },
+          subclaims: { ...INITIAL_SUBCLAIMS,  ...(data.subclaims  || {}) },
+          subgroups: data.subgroups || {...INITIAL_SUBGROUPS},
+          beers:     data.beers     || {},
+        }));
       } else {
         // First ever use — seed the database with defaults
         const init = buildInitialState();
@@ -1677,6 +1802,49 @@ function App() {
       const next = Math.max(0, (beers[key] || 0) + delta);
       if (next === 0) delete beers[key]; else beers[key] = next;
       return {...prev, beers};
+    });
+  };
+  const saveSubclaim = (gameId, yr, subMember) => {
+    const key = `${yr}-${gameId}`;
+    setState(prev => {
+      const subclaims = {...(prev.subclaims || {})};
+      if (!subMember) delete subclaims[key]; else subclaims[key] = subMember;
+      return {...prev, subclaims};
+    });
+  };
+  const addSubMember = (member, name) => {
+    const n = name.trim();
+    if (!n) return;
+    setState(prev => {
+      const subgroups = {...(prev.subgroups || {})};
+      const existing = subgroups[member] || [];
+      if (existing.includes(n)) return prev;
+      return {...prev, subgroups: {...subgroups, [member]: [...existing, n]}};
+    });
+  };
+  const removeSubMember = (member, name) => {
+    setState(prev => {
+      const subgroups = {...(prev.subgroups || {})};
+      const updated = (subgroups[member] || []).filter(n => n !== name);
+      const newSubgroups = updated.length
+        ? {...subgroups, [member]: updated}
+        : Object.fromEntries(Object.entries(subgroups).filter(([k]) => k !== member));
+      const subclaims = Object.fromEntries(
+        Object.entries(prev.subclaims || {}).filter(([,v]) => v !== name)
+      );
+      return {...prev, subgroups: newSubgroups, subclaims};
+    });
+  };
+  const renameSubMember = (member, oldName, newName) => {
+    const n = newName.trim();
+    if (!n || n === oldName) return;
+    setState(prev => {
+      const subgroups = {...(prev.subgroups || {})};
+      const updated = (subgroups[member] || []).map(x => x === oldName ? n : x);
+      const subclaims = Object.fromEntries(
+        Object.entries(prev.subclaims || {}).map(([k,v]) => [k, v === oldName ? n : v])
+      );
+      return {...prev, subgroups: {...subgroups, [member]: updated}, subclaims};
     });
   };
   const setMembers = ms => setState(prev => ({...prev, members:ms}));
@@ -1806,11 +1974,11 @@ function App() {
         paddingBottom: `calc(${NAV_H}px + env(safe-area-inset-bottom) + 8px)`,
         transition: 'padding-top 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
-        {tab==='schedule' && <ScheduleTab     year={year} games={games} claims={state.claims} scores={allScores} fetchingIds={fetchingIds} members={state.members} onGameClick={setSelectedGame}/>}
+        {tab==='schedule' && <ScheduleTab     year={year} games={games} claims={state.claims} scores={allScores} fetchingIds={fetchingIds} members={state.members} onGameClick={setSelectedGame} subclaims={state.subclaims||{}}/>}
         {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members} beers={state.beers||{}}/>}
         {tab==='board'    && <LeaderboardTab  claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='standings' && <StandingsTab/>}
-        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated} onToggleDark={() => setDarkMode(d => !d)} fbReady={fbReady}/>}
+        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated} onToggleDark={() => setDarkMode(d => !d)} fbReady={fbReady} subgroups={state.subgroups||{}} onAddSubMember={addSubMember} onRemoveSubMember={removeSubMember} onRenameSubMember={renameSubMember}/>}
       </div>
 
       {/* ── SCROLL TO TOP FAB ── */}
@@ -1860,6 +2028,9 @@ function App() {
           onSave={saveClaim}
           beers={state.beers||{}}
           onBeer={delta=>saveBeer(selectedGame.id,year,delta)}
+          subgroups={state.subgroups||{}}
+          subclaims={state.subclaims||{}}
+          onSubclaim={saveSubclaim}
         />
       )}
     </div>}
