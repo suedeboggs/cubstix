@@ -415,7 +415,7 @@ function buildInitialState() {
     claims[`2025-${g.id}`] = g.who;
     scores[`2025-${g.id}`] = {status:'Final', result:g.R, cubsRuns:g.cR, oppRuns:g.oR};
   });
-  return { claims, members: DEFAULT_MEMBERS, cachedScores: scores };
+  return { claims, members: DEFAULT_MEMBERS, cachedScores: scores, beers: {} };
 }
 
 function loadState() {
@@ -605,7 +605,7 @@ function GameCard({game, year, claimed, score, fetching, onClick}) {
 }
 
 // ─── GAME DETAIL MODAL ───────────────────────────────────────────────────────
-function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onSave}) {
+function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onSave, beers, onBeer}) {
   const C = React.useContext(ThemeContext);
   const [selected, setSelected] = useState(claimed || '');
   const [details, setDetails] = useState(null);
@@ -613,6 +613,8 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
   const past = isInPast(game.mlbDate);
   const isFinal = score?.status === 'Final';
   const giveaway = GIVEAWAYS[game.mlbDate] || null;
+  const gameKey = `${year}-${game.id}`;
+  const beerCount = (beers && beers[gameKey]) || 0;
 
   useEffect(() => {
     if (isFinal && !details) {
@@ -749,6 +751,26 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
                 style={{background:selected===m?C.blue:'transparent',border:`1.5px solid ${selected===m?C.blue:C.border}`,borderRadius:20,color:selected===m?C.cream:C.ink,padding:'7px 14px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
               >{m}</button>
             ))}
+          </div>
+
+          {/* Beer Tracker */}
+          <div style={{marginTop:20,marginBottom:4}}>
+            <div style={{fontSize:13,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10}}>🍺 BEER TRACKER</div>
+            <div style={{background:C.cream2,border:`1px solid ${C.border}`,borderRadius:8,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <button
+                onClick={() => onBeer && onBeer(-1)}
+                disabled={beerCount <= 0}
+                style={{width:48,height:48,borderRadius:'50%',background:beerCount>0?C.red:'transparent',border:`2px solid ${beerCount>0?C.red:C.border}`,color:beerCount>0?'#fff':C.muted,fontSize:26,cursor:beerCount>0?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,lineHeight:1,flexShrink:0}}
+              >−</button>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:56,fontWeight:900,color:C.ink,fontFamily:"'Bebas Neue',sans-serif",lineHeight:1}}>{beerCount}</div>
+                <div style={{fontSize:12,color:C.muted,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginTop:4}}>BEERS</div>
+              </div>
+              <button
+                onClick={() => onBeer && onBeer(1)}
+                style={{width:48,height:48,borderRadius:'50%',background:C.blue,border:`2px solid ${C.blue}`,color:'#fff',fontSize:26,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,lineHeight:1,flexShrink:0}}
+              >+</button>
+            </div>
           </div>
         </div>
 
@@ -951,7 +973,7 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
 }
 
 // ─── STATS TAB ───────────────────────────────────────────────────────────────
-function StatsTab({claims, scores, members}) {
+function StatsTab({claims, scores, members, beers}) {
   const C = React.useContext(ThemeContext);
   const [statYear, setStatYear] = useState('all');
 
@@ -974,6 +996,20 @@ function StatsTab({claims, scores, members}) {
       return bP - aP || b.wins - a.wins;
     });
   }, [members, claims, scores, statYear]);
+
+  const beerStats = React.useMemo(() => {
+    return members.map(m => {
+      let totalBeers = 0, beerGames = 0;
+      yearsFor(statYear).forEach(yr => {
+        SEASONS[yr].filter(g => claims[`${yr}-${g.id}`] === m).forEach(g => {
+          const b = (beers[`${yr}-${g.id}`]) || 0;
+          if (b > 0) { totalBeers += b; beerGames++; }
+        });
+      });
+      const avg = beerGames > 0 ? (totalBeers / beerGames).toFixed(1) : null;
+      return {name: m, totalBeers, beerGames, avg};
+    }).sort((a, b) => b.totalBeers - a.totalBeers);
+  }, [members, claims, beers, statYear]);
 
   const MEDAL = ['🥇','🥈','🥉'];
   const rankColors = [C.blue, '#9AA5B1', '#B87C3A'];
@@ -1020,6 +1056,32 @@ function StatsTab({claims, scores, members}) {
           </div>
         );
       })}
+
+      {/* Beer Leaderboard */}
+      {beerStats.some(b => b.totalBeers > 0) && (
+        <div style={{marginTop:24}}>
+          <div style={{fontSize:14,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10,paddingLeft:2}}>🍺 BEER LEADERBOARD</div>
+          {beerStats.filter(b => b.totalBeers > 0).map((b, i) => (
+            <div key={b.name} style={{display:'flex',alignItems:'center',gap:12,background:C.cream,border:`1px solid ${C.border}`,borderLeft:`4px solid ${i===0?C.blue:i===1?'#9AA5B1':i===2?'#B87C3A':C.border}`,borderRadius:7,padding:'10px 13px',marginBottom:8}}>
+              <div style={{fontSize:20,minWidth:28,textAlign:'center'}}>{i<3?MEDAL[i]:`#${i+1}`}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:17,fontWeight:700,color:C.ink,fontFamily:"'Bebas Neue',sans-serif"}}>{b.name}</div>
+                <div style={{fontSize:13,color:C.muted,fontFamily:"'Montserrat',sans-serif",marginTop:2}}>{b.beerGames} game{b.beerGames!==1?'s':''} with beers</div>
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <div style={{background:C.cream2,border:`1px solid ${C.border}`,borderRadius:4,padding:'6px 10px',textAlign:'center',minWidth:52}}>
+                  <div style={{fontSize:20,fontWeight:700,color:C.blue,fontFamily:"'Bebas Neue',sans-serif",lineHeight:1}}>{b.totalBeers}</div>
+                  <div style={{fontSize:11,color:C.muted,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.08em',marginTop:2}}>TOTAL</div>
+                </div>
+                <div style={{background:C.cream2,border:`1px solid ${C.border}`,borderRadius:4,padding:'6px 10px',textAlign:'center',minWidth:52}}>
+                  <div style={{fontSize:20,fontWeight:700,color:C.green,fontFamily:"'Bebas Neue',sans-serif",lineHeight:1}}>{b.avg}</div>
+                  <div style={{fontSize:11,color:C.muted,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.08em',marginTop:2}}>AVG/GM</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1608,6 +1670,15 @@ function App() {
       return {...prev, claims};
     });
   };
+  const saveBeer = (gameId, yr, delta) => {
+    const key = `${yr}-${gameId}`;
+    setState(prev => {
+      const beers = {...(prev.beers || {})};
+      const next = Math.max(0, (beers[key] || 0) + delta);
+      if (next === 0) delete beers[key]; else beers[key] = next;
+      return {...prev, beers};
+    });
+  };
   const setMembers = ms => setState(prev => ({...prev, members:ms}));
   const renameMember = (oldName, newName) => setState(prev => {
     // Update the members list
@@ -1736,7 +1807,7 @@ function App() {
         transition: 'padding-top 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
         {tab==='schedule' && <ScheduleTab     year={year} games={games} claims={state.claims} scores={allScores} fetchingIds={fetchingIds} members={state.members} onGameClick={setSelectedGame}/>}
-        {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members}/>}
+        {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members} beers={state.beers||{}}/>}
         {tab==='board'    && <LeaderboardTab  claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='standings' && <StandingsTab/>}
         {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated} onToggleDark={() => setDarkMode(d => !d)} fbReady={fbReady}/>}
@@ -1787,6 +1858,8 @@ function App() {
           wrigleyB64={wrigleyB64}
           onClose={()=>setSelectedGame(null)}
           onSave={saveClaim}
+          beers={state.beers||{}}
+          onBeer={delta=>saveBeer(selectedGame.id,year,delta)}
         />
       )}
     </div>}
