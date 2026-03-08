@@ -26,6 +26,54 @@ const C = {
   fieldGreen:'#285943',
 };
 
+// Alias so App can reference light palette without TDZ issues
+const C_LIGHT = C;
+
+const C_DARK = {
+  cream:     '#0D1117',
+  cream2:    '#161B27',
+  cream3:    '#1E2533',
+  blue:      '#1A4AAA',
+  blueMid:   '#2D60CC',
+  blueLight: '#4A7AE0',
+  green:     '#285943',
+  greenLight:'#346B52',
+  red:       '#CC3433',
+  redDark:   '#A02827',
+  ink:       '#E8ECF0',
+  muted:     '#8A94A8',
+  border:    '#2A3347',
+  white:     '#FFFFFF',
+  navy:      '#1A4AAA',
+  navyMid:   '#2D60CC',
+  navyLight: '#2A3347',
+  gold:      '#1A4AAA',
+  goldLight: '#2D60CC',
+  fieldGreen:'#285943',
+};
+
+const ThemeContext = React.createContext(C);
+
+// ─── FIREBASE ────────────────────────────────────────────────────────────────
+// Paste your firebaseConfig object from Firebase Console → Project Settings → Your Apps
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCFDTvlBTPapg7J8F3qAlkau8Zyu23Kak4",
+  authDomain:        "cubs-tix-tracker.firebaseapp.com",
+  databaseURL:       "https://cubs-tix-tracker-default-rtdb.firebaseio.com",
+  projectId:         "cubs-tix-tracker",
+  storageBucket:     "cubs-tix-tracker.firebasestorage.app",
+  messagingSenderId: "28002589192",
+  appId:             "1:28002589192:web:73eeff2945768dc945cfbd",
+};
+
+let DB = null;
+try {
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  DB = firebase.database().ref('cubs-tracker-v8');
+} catch(e) {
+  console.warn('Firebase init failed — running in local-only mode', e);
+}
+
 const WRIGLEY_IMG = 'WRIGLEY_PLACEHOLDER';
 const CUBS_LOGO   = 'LOGO_PLACEHOLDER';
 
@@ -436,7 +484,7 @@ async function fetchGameDetails(mlbDate, gameType='R') {
 
 // ─── UTILITY COMPONENTS ─────────────────────────────────────────────────────
 // ─── SHARED HELPERS ──────────────────────────────────────────────────────────
-const yearBtnStyle = (isActive) => ({
+const yearBtnStyle = (isActive, C = C_LIGHT) => ({
   flex:1, background:isActive?C.blue:'transparent',
   border:`1.5px solid ${isActive?C.blue:C.border}`, borderRadius:8,
   color:isActive?C.cream:C.ink, padding:'6px 0', fontSize:15,
@@ -475,6 +523,7 @@ const Icons = {
 
 // ─── RESULT BADGE ────────────────────────────────────────────────────────────
 function ResultBadge({result, cubsRuns, oppRuns, size='sm'}) {
+  const C = React.useContext(ThemeContext);
   const isW = result === 'W';
   // Win = W-flag: white bg, Cubs blue text, blue border
   // Loss = Cubs red bg, white text
@@ -494,6 +543,7 @@ function ResultBadge({result, cubsRuns, oppRuns, size='sm'}) {
 
 // ─── GAME CARD ────────────────────────────────────────────────────────────────
 function GameCard({game, year, claimed, score, fetching, onClick}) {
+  const C = React.useContext(ThemeContext);
   const past = isInPast(game.mlbDate);
   const isWin  = score?.result === 'W';
   const isLoss = score?.result === 'L';
@@ -556,6 +606,7 @@ function GameCard({game, year, claimed, score, fetching, onClick}) {
 
 // ─── GAME DETAIL MODAL ───────────────────────────────────────────────────────
 function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onSave}) {
+  const C = React.useContext(ThemeContext);
   const [selected, setSelected] = useState(claimed || '');
   const [details, setDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -735,6 +786,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
 
 // ─── SCHEDULE TAB ────────────────────────────────────────────────────────────
 function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameClick}) {
+  const C = React.useContext(ThemeContext);
   const [monthFilter, setMonthFilter] = useState('all');
   const [memberFilter, setMemberFilter] = useState('all');
   const [ticketFilter, setTicketFilter] = useState('all');
@@ -900,6 +952,7 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
 
 // ─── STATS TAB ───────────────────────────────────────────────────────────────
 function StatsTab({claims, scores, members}) {
+  const C = React.useContext(ThemeContext);
   const [statYear, setStatYear] = useState('all');
 
   const stats = React.useMemo(() => {
@@ -930,7 +983,7 @@ function StatsTab({claims, scores, members}) {
       {/* Year filter */}
       <div style={{display:'flex',gap:6,marginBottom:16}}>
         {['all',...SEASON_YEARS].map(yr => (
-          <button key={yr} onClick={()=>setStatYear(yr)} style={yearBtnStyle(statYear===yr)}>
+          <button key={yr} onClick={()=>setStatYear(yr)} style={yearBtnStyle(statYear===yr, C)}>
             {yr==='all'?'ALL TIME':yr}
           </button>
         ))}
@@ -973,6 +1026,7 @@ function StatsTab({claims, scores, members}) {
 
 // ─── LEADERBOARD TAB ─────────────────────────────────────────────────────────
 function LeaderboardTab({claims, scores, members}) {
+  const C = React.useContext(ThemeContext);
   const [boardYear, setBoardYear] = useState('all');
 
   const ranked = React.useMemo(() => members.map(m => {
@@ -996,7 +1050,7 @@ function LeaderboardTab({claims, scores, members}) {
       {/* Year filter */}
       <div style={{display:'flex',gap:6,marginBottom:16}}>
         {['all',...SEASON_YEARS].map(yr => (
-          <button key={yr} onClick={()=>setBoardYear(yr)} style={yearBtnStyle(boardYear===yr)}>
+          <button key={yr} onClick={()=>setBoardYear(yr)} style={yearBtnStyle(boardYear===yr, C)}>
             {yr==='all'?'ALL TIME':yr}
           </button>
         ))}
@@ -1047,6 +1101,7 @@ const COL_HDR = {
 };
 
 function StandingsTab() {
+  const C = React.useContext(ThemeContext);
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -1174,7 +1229,9 @@ function StandingsTab() {
   );
 }
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated}) {
+function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, onToggleDark, fbReady}) {
+  const C = React.useContext(ThemeContext);
+  const isDark = C === C_DARK;
   const [newName, setNewName]   = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
   const [editValue, setEditValue]   = useState('');
@@ -1261,6 +1318,10 @@ function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated}) 
       </Section>
 
       <Section title="LIVE SCORE SYNC">
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+          <div style={{width:9,height:9,borderRadius:'50%',background:fbReady?'#4ade80':'rgba(255,255,255,0.35)',boxShadow:fbReady?'0 0 6px #4ade80':'none',flexShrink:0,transition:'background 0.5s'}}/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,0.75)',fontFamily:"'Montserrat',sans-serif"}}>{fbReady ? 'Live — syncing with all shareholders' : 'Connecting to shared database…'}</div>
+        </div>
         <div style={{fontSize:15,color:'rgba(255,255,255,0.85)',fontFamily:"'Montserrat',sans-serif",lineHeight:1.7,marginBottom:14}}>
           2025 results are locked. 2026 scores update automatically from the MLB Stats API.
         </div>
@@ -1270,6 +1331,32 @@ function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated}) 
           </div>
         )}
         <button onClick={onRefresh} style={{background:'rgba(255,255,255,0.15)',border:'1.5px solid rgba(255,255,255,0.5)',borderRadius:5,color:'#fff',fontWeight:700,fontSize:15,padding:'11px 20px',fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',cursor:'pointer',width:'100%',marginTop:4}}>↻  REFRESH SCORES</button>
+      </Section>
+
+      <Section title="APPEARANCE">
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 0'}}>
+          <div>
+            <div style={{fontSize:15,color:'#fff',fontFamily:"'Montserrat',sans-serif",fontWeight:500}}>{isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}</div>
+            <div style={{fontSize:12,color:'rgba(255,255,255,0.55)',fontFamily:"'Montserrat',sans-serif",marginTop:3}}>{isDark ? 'Dark theme enabled' : 'Light theme active'}</div>
+          </div>
+          <button onClick={onToggleDark} aria-label="Toggle dark mode" style={{
+            width:52,height:30,borderRadius:15,
+            background: isDark ? '#1A4AAA' : 'rgba(255,255,255,0.25)',
+            border:'1.5px solid rgba(255,255,255,0.4)',
+            cursor:'pointer',padding:0,position:'relative',
+            transition:'background 0.3s',flexShrink:0,
+          }}>
+            <div style={{
+              position:'absolute',top:4,
+              left: isDark ? 24 : 4,
+              width:20,height:20,borderRadius:'50%',
+              background:'#fff',transition:'left 0.25s',
+              boxShadow:'0 1px 5px rgba(0,0,0,0.4)',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              fontSize:11,
+            }}>{isDark ? '🌙' : '☀️'}</div>
+          </button>
+        </div>
       </Section>
 
       <Section title="ABOUT">
@@ -1413,6 +1500,15 @@ function App() {
   const [selectedGame, setSelectedGame] = useState(null);
   const [wrigleyB64, setWrigleyB64]  = useState('');
   const [logoB64, setLogoB64]        = useState('');
+  const [darkMode, setDarkMode]      = useState(() => {
+    try { return localStorage.getItem('cubs-dark') === 'true'; } catch { return false; }
+  });
+  const [fbReady, setFbReady]        = useState(false);
+  const skipRead  = useRef(false); // skip our own write echoing back from Firebase
+  const skipWrite = useRef(false); // skip write when Firebase pushes an update to us
+
+  // Derive active theme — shadows module-level C inside App
+  const C = darkMode ? C_DARK : C_LIGHT;
 
   // Scroll-driven header collapse — listen on window, not a div
   const [scrolled, setScrolled]     = useState(false);
@@ -1440,9 +1536,42 @@ function App() {
     if (window.__LOGO_B64__)    setLogoB64(window.__LOGO_B64__);
   }, []);
 
+  // ── Firebase real-time sync ─────────────────────────────────────────────────
   useEffect(() => {
+    if (!DB) return; // Firebase not configured — local-only mode
+    const handler = DB.on('value', snap => {
+      if (skipRead.current) { skipRead.current = false; return; }
+      const data = snap.val();
+      if (data) {
+        // Merge CLAIMS_2026 as defaults so new seasons always appear
+        skipWrite.current = true;
+        setState(prev => ({ ...data, claims: { ...CLAIMS_2026, ...data.claims } }));
+      } else {
+        // First ever use — seed the database with defaults
+        const init = buildInitialState();
+        skipRead.current = true;
+        DB.set(init);
+        setState(init);
+      }
+      setFbReady(true);
+    });
+    return () => DB.off('value', handler);
+  }, []);
+
+  // Write state to Firebase + cache locally
+  useEffect(() => {
+    // Always keep a local cache for offline use
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch{}
-  }, [state]);
+    // Skip writing back to Firebase if this update came FROM Firebase
+    if (skipWrite.current) { skipWrite.current = false; return; }
+    if (!DB || !fbReady) return;
+    skipRead.current = true; // our write will echo back — ignore it
+    DB.set(state).catch(() => { skipRead.current = false; });
+  }, [state, fbReady]);
+
+  useEffect(() => {
+    try { localStorage.setItem('cubs-dark', darkMode); } catch {}
+  }, [darkMode]);
 
   const allScores = { ...state.cachedScores, ...liveScores };
 
@@ -1517,9 +1646,10 @@ function App() {
   const NAV_H = 56; // button content height; safe-area padding added on top
 
   return (
+    <ThemeContext.Provider value={C}>
     <>
     {campana && <CampanaPage onBack={() => setCampana(false)} logoB64={logoB64}/>}
-    {!campana && <div style={{background:C.cream, color:C.ink, minHeight:'100vh', maxWidth:480, margin:'0 auto', position:'relative'}}>
+    {!campana && <div style={{background:C.cream, color:C.ink, minHeight:'100vh', maxWidth:480, margin:'0 auto', position:'relative', transition:'background-color 0.3s, color 0.3s'}}>
 
       {/* ── FIXED HEADER — sits at top:0, bleeds behind status bar ── */}
       <div style={{
@@ -1583,7 +1713,7 @@ function App() {
         }}>
           <div style={{display:'flex',padding:'8px 12px 6px',gap:6}}>
             {SEASON_YEARS.map(yr => (
-              <button key={yr} onClick={()=>setYear(yr)} style={yearBtnStyle(year===yr)}>
+              <button key={yr} onClick={()=>setYear(yr)} style={yearBtnStyle(year===yr, C)}>
                 {yr}
               </button>
             ))}
@@ -1609,7 +1739,7 @@ function App() {
         {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='board'    && <LeaderboardTab  claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='standings' && <StandingsTab/>}
-        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated}/>}
+        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated} onToggleDark={() => setDarkMode(d => !d)} fbReady={fbReady}/>}
       </div>
 
       {/* ── SCROLL TO TOP FAB ── */}
@@ -1661,6 +1791,7 @@ function App() {
       )}
     </div>}
     </>
+    </ThemeContext.Provider>
   );
 }
 
