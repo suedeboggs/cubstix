@@ -371,7 +371,14 @@ function buildInitialState() {
 }
 
 function loadState() {
-  try { const r = localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); } catch{}
+  try {
+    const r = localStorage.getItem(STORAGE_KEY);
+    if (r) {
+      const saved = JSON.parse(r);
+      saved.claims = { ...CLAIMS_2026, ...saved.claims };
+      return saved;
+    }
+  } catch {}
   return buildInitialState();
 }
 
