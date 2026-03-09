@@ -415,7 +415,8 @@ const INITIAL_SUBCLAIMS = {
 };
 
 const CUBS_TEAM_ID = 112;
-const STORAGE_KEY = "cubs-tracker-v8";
+const STORAGE_KEY  = "cubs-tracker-v8";
+const SYNC_TS_KEY  = "cubs-tracker-ts"; // separate key so _ts never pollutes state
 const MONTH_ORDER = ['MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER'];
 const MONTH_ABBR = {MARCH:'Mar',APRIL:'Apr',MAY:'May',JUNE:'Jun',JULY:'Jul',AUGUST:'Aug',SEPTEMBER:'Sep',OCTOBER:'Oct'};
 
@@ -1784,15 +1785,33 @@ function App() {
       if (skipRead.current > 0) { skipRead.current--; return; }
       const data = snap.val();
       if (data) {
-        // Merge defaults so new seasons / new fields always appear
+        // Guard: if our localStorage is newer than Firebase, the last write failed
+        // (permission_denied). Keep local state and retry the push instead of
+        // letting stale Firebase data overwrite what the user just changed.
+        const localTs = (() => { try { return parseInt(localStorage.getItem(SYNC_TS_KEY) || '0', 10); } catch { return 0; }})();
+        const fbTs = data._ts || 0;
+        if (localTs > fbTs + 5000) {
+          // Local is >5 s fresher — previous Firebase write failed. Retry it.
+          const localState = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }})();
+          if (localState) {
+            skipRead.current = 2;
+            DB.set({...localState, _ts: Date.now()})
+              .then(() => { if (skipRead.current > 0) skipRead.current--; })
+              .catch(() => {});
+          }
+          setFbReady(true);
+          return; // keep current in-memory state — don't overwrite with stale data
+        }
+        // Firebase is at least as fresh — accept it
         skipWrite.current = true;
         const membersList = data.members || DEFAULT_MEMBERS;
+        const { _ts: _ignored, ...cleanData } = data;
         setState(prev => ({
-          ...data,
-          claims:    { ...CLAIMS_2026,       ...data.claims },
-          subclaims: { ...INITIAL_SUBCLAIMS,  ...(data.subclaims  || {}) },
-          subgroups: normalizeSubgroups(data.subgroups || {...INITIAL_SUBGROUPS}, membersList),
-          beers:     data.beers     || {},
+          ...cleanData,
+          claims:    { ...CLAIMS_2026,       ...cleanData.claims },
+          subclaims: { ...INITIAL_SUBCLAIMS,  ...(cleanData.subclaims  || {}) },
+          subgroups: normalizeSubgroups(cleanData.subgroups || {...INITIAL_SUBGROUPS}, membersList),
+          beers:     cleanData.beers     || {},
         }));
       } else {
         // First ever use — seed the database with defaults
@@ -1808,13 +1827,20 @@ function App() {
 
   // Write state to Firebase + cache locally
   useEffect(() => {
+    // Stamp a timestamp so we can detect stale Firebase data on reload
+    const ts = Date.now();
     // Always keep a local cache for offline use
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch{}
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(SYNC_TS_KEY, String(ts));
+    } catch{}
     // Skip writing back to Firebase if this update came FROM Firebase
     if (skipWrite.current) { skipWrite.current = false; return; }
     if (!DB || !fbReady) return;
     skipRead.current = 2; // expect optimistic echo + possible rollback on failure
-    DB.set(state).then(() => { if (skipRead.current > 0) skipRead.current--; }); // success: undo the extra slot reserved for rollback
+    DB.set({...state, _ts: ts})
+      .then(() => { if (skipRead.current > 0) skipRead.current--; }) // success: undo rollback slot
+      .catch(() => {}); // silence unhandled-rejection warning; stale-guard handles the fallout
   }, [state, fbReady]);
 
   useEffect(() => {
