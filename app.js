@@ -1790,7 +1790,7 @@ function App() {
     if (skipWrite.current) { skipWrite.current = false; return; }
     if (!DB || !fbReady) return;
     skipRead.current = true; // our write will echo back — ignore it
-    DB.set(state).catch(() => { skipRead.current = false; });
+    DB.set(state).catch(() => { skipRead.current = true; }); // on failure, also skip the rollback echo
   }, [state, fbReady]);
 
   useEffect(() => {
