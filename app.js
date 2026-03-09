@@ -1994,10 +1994,10 @@ function App() {
   const photoH        = scrolled ? 100 : 210;
   const yearBarVisible = !scrolledFar && tab === 'schedule';
 
-  // The fixed header total height is used to push content down so it doesn't hide behind header
-  // Approximate: photo + 3px stripe + (yearBar ? ~88px : 0)
-  // We set this as a CSS var so content padding-top stays in sync
-  const headerH = photoH + 3 + (yearBarVisible ? 88 : 0);
+  // The fixed header total height used to push content below the header.
+  // safe-area-inset-top is NOT included here — the photo div's height+marginTop trick already
+  // absorbs it, so the header bottom is always at exactly photoH px from the viewport top.
+  const yearBarH = yearBarVisible ? 92 : 0; // year-btn row ~44px + stats row ~48px
 
   const NAV_TABS = [
     ['schedule','Schedule',Icons.Schedule],
@@ -2096,7 +2096,7 @@ function App() {
 
       {/* ── PAGE CONTENT — pushed down by fixed header height ── */}
       <div style={{
-        paddingTop: `calc(${photoH}px + 3px + ${yearBarVisible ? 88 : 0}px + env(safe-area-inset-top))`,
+        paddingTop: `${photoH + yearBarH}px`,
         paddingBottom: `calc(${NAV_H}px + env(safe-area-inset-bottom) + 8px)`,
         transition: 'padding-top 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
