@@ -644,32 +644,44 @@ function GameCard({game, year, claimed, subclaim, score, fetching, onClick}) {
   );
 }
 
-// ─── GAME DETAIL MODAL ───────────────────────────────────────────────────────
-function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onSave, beers, onBeer, subgroups, subclaims, onSubclaim}) {
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function Toast({message, onUndo, onDismiss}) {
   const C = React.useContext(ThemeContext);
-  const [selected, setSelected] = useState(claimed || '');
-  const gameKey = `${year}-${game.id}`;
-  const initialClaim = claimed || '';
-  const initialSubMembers = (subgroups && initialClaim && subgroups[initialClaim]) || [];
-  const [selectedSub, setSelectedSub] = useState(
-    (subclaims && subclaims[gameKey]) || (initialSubMembers.length > 0 ? initialSubMembers[0] : '')
+  return (
+    <div style={{
+      position:'fixed', bottom:76, left:16, right:16,
+      background:'#1a1a2e', color:'#fff', borderRadius:10,
+      padding:'12px 16px', display:'flex', alignItems:'center', gap:10,
+      zIndex:350,
+      boxShadow:'0 4px 24px rgba(0,0,0,0.5)',
+      animation:'fadeIn 0.2s ease forwards',
+    }}>
+      <div style={{flex:1, fontSize:14, fontFamily:"'Montserrat',sans-serif", lineHeight:1.4}}>{message}</div>
+      <button onClick={onUndo} style={{
+        background:'rgba(255,255,255,0.15)', border:'none', color:'#fff',
+        padding:'6px 11px', borderRadius:6, fontSize:13, fontWeight:700,
+        fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.08em', cursor:'pointer', flexShrink:0,
+      }}>UNDO</button>
+      <button onClick={onDismiss} style={{
+        background:'none', border:'none', color:'rgba(255,255,255,0.55)',
+        fontSize:18, cursor:'pointer', padding:'2px 4px', lineHeight:1, flexShrink:0,
+      }}>✕</button>
+    </div>
   );
+}
+
+// ─── GAME DETAIL MODAL ───────────────────────────────────────────────────────
+function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onClaimChange, onSubclaimChange, beers, onBeer, subgroups, subclaims}) {
+  const C = React.useContext(ThemeContext);
+  const gameKey = `${year}-${game.id}`;
+  const currentSub = (subclaims && subclaims[gameKey]) || '';
   const [details, setDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const past = isInPast(game.mlbDate);
   const isFinal = score?.status === 'Final';
   const giveaway = GIVEAWAYS[game.mlbDate] || null;
   const beerCount = (beers && beers[gameKey]) || 0;
-  const currentSubMembers = (subgroups && selected && subgroups[selected]) || [];
-
-  // When holder changes, default to first sub-member (or clear if none)
-  // Skip first render so we don't override the saved subclaim on open
-  const skipFirstSubRef = useRef(true);
-  useEffect(() => {
-    if (skipFirstSubRef.current) { skipFirstSubRef.current = false; return; }
-    const subs = (subgroups && subgroups[selected]) || [];
-    setSelectedSub(subs.length > 0 ? subs[0] : '');
-  }, [selected]);
+  const currentSubMembers = (subgroups && claimed && subgroups[claimed]) || [];
 
   useEffect(() => {
     if (isFinal && !details) {
@@ -796,14 +808,14 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
           {/* Assign section */}
           <div style={{fontSize:13,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10}}>ASSIGN TICKETS</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:6}}>
-            <button
-              onClick={() => setSelected('')}
-              style={{background:selected===''?C.red:'transparent',border:`1.5px solid ${selected===''?C.red:C.border}`,borderRadius:20,color:selected===''?'#fff':C.ink,padding:'7px 14px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
-            >— None</button>
             {members.map(m => (
               <button key={m}
-                onClick={() => setSelected(m)}
-                style={{background:selected===m?C.blue:'transparent',border:`1.5px solid ${selected===m?C.blue:C.border}`,borderRadius:20,color:selected===m?C.cream:C.ink,padding:'7px 14px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
+                onClick={() => {
+                  const newClaim = m === (claimed || '') ? '' : m;
+                  const prevSub = (subclaims && subclaims[gameKey]) || '';
+                  onClaimChange && onClaimChange(game.id, year, newClaim, claimed || '', prevSub);
+                }}
+                style={{background:(claimed||'')==m?C.blue:'transparent',border:`1.5px solid ${(claimed||'')==m?C.blue:C.border}`,borderRadius:20,color:(claimed||'')==m?C.cream:C.ink,padding:'7px 14px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
               >{m}</button>
             ))}
           </div>
@@ -815,8 +827,8 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
               <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                 {currentSubMembers.map(sub => (
                   <button key={sub}
-                    onClick={() => setSelectedSub(sub)}
-                    style={{background:selectedSub===sub?C.blueMid:'transparent',border:`1.5px solid ${selectedSub===sub?C.blueMid:C.border}`,borderRadius:20,color:selectedSub===sub?'#fff':C.ink,padding:'6px 13px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
+                    onClick={() => onSubclaimChange && onSubclaimChange(game.id, year, sub)}
+                    style={{background:currentSub===sub?C.blueMid:'transparent',border:`1.5px solid ${currentSub===sub?C.blueMid:C.border}`,borderRadius:20,color:currentSub===sub?'#fff':C.ink,padding:'6px 13px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
                   >{sub}</button>
                 ))}
               </div>
@@ -842,12 +854,10 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
               >+</button>
             </div>
           </div>
-        </div>
 
-
-        {/* Giveaway section */}
-        {giveaway && (
-            <div style={{margin:'0 16px 14px',borderRadius:6,overflow:'hidden',border:`1px solid ${C.border}`}}>
+          {/* Giveaway section */}
+          {giveaway && (
+            <div style={{marginTop:16,marginBottom:4,borderRadius:6,overflow:'hidden',border:`1px solid ${C.border}`}}>
               <div style={{background:C.green,padding:'10px 14px'}}>
                 <div style={{fontSize:14,fontWeight:700,color:C.cream,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.25em'}}>🔔 DING! DING! DING!</div>
               </div>
@@ -861,15 +871,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
                 </a>
               </div>
             </div>
-        )}
-
-        {/* Footer */}
-        <div style={{display:'flex',gap:10,padding:'12px 16px',borderTop:`1px solid ${C.border}`,background:C.cream,flexShrink:0}}>
-          <button onClick={onClose} style={{flex:1,background:'transparent',border:`1.5px solid ${C.border}`,borderRadius:5,color:C.muted,padding:'12px 0',fontSize:15,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}>Cancel</button>
-          <button
-            onClick={() => { onSave(game.id, year, selected); if (onSubclaim) onSubclaim(game.id, year, currentSubMembers.length > 0 ? selectedSub : ''); onClose(); }}
-            style={{flex:2,background:C.blue,border:'none',borderRadius:5,color:C.cream,padding:'12px 0',fontSize:15,fontWeight:700,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.1em',cursor:'pointer'}}
-          >SAVE</button>
+          )}
         </div>
       </div>
     </div>
@@ -1570,6 +1572,26 @@ function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, o
         </div>
       </Section>
 
+      <div style={{padding:'4px 0 32px'}}>
+        <a
+          href="https://docs.google.com/spreadsheets/d/1rV9C-BLuxC6ZEljncJ2S4D2igaFIv6L4If4hNHRuWwE/edit?gid=662260315#gid=662260315"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            width:'100%', padding:'13px 0',
+            background:C.green,
+            border:'none',
+            borderRadius:8,
+            color:'#fff', fontSize:15,
+            fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.1em',
+            textDecoration:'none',
+          }}
+        >
+          VIEW MIKE'S TICKET DOC <span style={{fontSize:13,opacity:0.7}}>↗</span>
+        </a>
+      </div>
+
     </div>
   );
 }
@@ -1715,13 +1737,15 @@ function App() {
   const [tab, setTab]                = useState('schedule');
   const [campana, setCampana]        = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [toast, setToast]            = useState(null); // {message, undoFn}
+  const toastTimerRef                = useRef(null);
   const [wrigleyB64, setWrigleyB64]  = useState('');
   const [logoB64, setLogoB64]        = useState('');
   const [darkMode, setDarkMode]      = useState(() => {
     try { return localStorage.getItem('cubs-dark') === 'true'; } catch { return false; }
   });
   const [fbReady, setFbReady]        = useState(false);
-  const skipRead  = useRef(false); // skip our own write echoing back from Firebase
+  const skipRead  = useRef(0); // skip our own write echoing back from Firebase (counter)
   const skipWrite = useRef(false); // skip write when Firebase pushes an update to us
 
   // Derive active theme — shadows module-level C inside App
@@ -1757,7 +1781,7 @@ function App() {
   useEffect(() => {
     if (!DB) return; // Firebase not configured — local-only mode
     const handler = DB.on('value', snap => {
-      if (skipRead.current) { skipRead.current = false; return; }
+      if (skipRead.current > 0) { skipRead.current--; return; }
       const data = snap.val();
       if (data) {
         // Merge defaults so new seasons / new fields always appear
@@ -1773,7 +1797,7 @@ function App() {
       } else {
         // First ever use — seed the database with defaults
         const init = buildInitialState();
-        skipRead.current = true;
+        skipRead.current = 1;
         DB.set(init);
         setState(init);
       }
@@ -1789,8 +1813,8 @@ function App() {
     // Skip writing back to Firebase if this update came FROM Firebase
     if (skipWrite.current) { skipWrite.current = false; return; }
     if (!DB || !fbReady) return;
-    skipRead.current = true; // our write will echo back — ignore it
-    DB.set(state).catch(() => { skipRead.current = true; }); // on failure, also skip the rollback echo
+    skipRead.current = 2; // expect optimistic echo + possible rollback on failure
+    DB.set(state).then(() => { if (skipRead.current > 0) skipRead.current--; }); // success: undo the extra slot reserved for rollback
   }, [state, fbReady]);
 
   useEffect(() => {
@@ -1849,6 +1873,43 @@ function App() {
       return {...prev, subclaims};
     });
   };
+
+  // ── Toast helpers ───────────────────────────────────────────────────────────
+  const showToast = (message, undoFn) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ message, undoFn });
+    toastTimerRef.current = setTimeout(() => setToast(null), 4500);
+  };
+  const dismissToast = () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(null);
+  };
+
+  // Immediate claim change: saves + shows toast with undo
+  const handleClaimChange = (gameId, yr, newMember, prevMember, prevSubclaim) => {
+    saveClaim(gameId, yr, newMember);
+    // Auto-set subclaim when holder changes
+    if (newMember && state.subgroups?.[newMember]?.length > 0) {
+      saveSubclaim(gameId, yr, state.subgroups[newMember][0]);
+    } else {
+      saveSubclaim(gameId, yr, '');
+    }
+    const game = SEASONS[yr]?.find(g => g.id === gameId);
+    const oppShort = game ? game.opp.split(' ').pop() : '';
+    const dateStr  = game ? `${MONTH_ABBR[game.month]} ${game.day}` : 'Game';
+    const msg = newMember
+      ? `${newMember} claimed ${dateStr} vs. ${oppShort}`
+      : `${dateStr} vs. ${oppShort} unassigned`;
+    showToast(msg, () => {
+      saveClaim(gameId, yr, prevMember);
+      saveSubclaim(gameId, yr, prevSubclaim);
+    });
+  };
+
+  const handleSubclaimChange = (gameId, yr, subMember) => {
+    saveSubclaim(gameId, yr, subMember);
+  };
+
   const addSubMember = (member, name) => {
     const n = name.trim();
     if (!n) return;
@@ -2064,12 +2125,21 @@ function App() {
           members={state.members}
           wrigleyB64={wrigleyB64}
           onClose={()=>setSelectedGame(null)}
-          onSave={saveClaim}
+          onClaimChange={handleClaimChange}
+          onSubclaimChange={handleSubclaimChange}
           beers={state.beers||{}}
           onBeer={delta=>saveBeer(selectedGame.id,year,delta)}
           subgroups={state.subgroups||{}}
           subclaims={state.subclaims||{}}
-          onSubclaim={saveSubclaim}
+        />
+      )}
+
+      {/* ── TOAST ── */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          onUndo={() => { toast.undoFn && toast.undoFn(); dismissToast(); }}
+          onDismiss={dismissToast}
         />
       )}
     </div>}
