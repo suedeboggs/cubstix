@@ -966,7 +966,7 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
   return (
     <div style={{paddingBottom:16}} onClick={closeMenus}>
       {/* 3-pill filter row */}
-      <div style={{padding:'14px 14px 14px', display:'flex', gap:8, alignItems:'center', justifyContent:'center'}}>
+      <div style={{padding:'10px 14px 6px', display:'flex', gap:8, alignItems:'center', justifyContent:'center'}}>
         {/* Month pill */}
         <div style={{position:'relative'}} onClick={e => e.stopPropagation()}>
           <button style={pillStyle(monthFilter!=='all', openMenu==='month')}
@@ -1026,7 +1026,7 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
       <div style={{padding:'0 12px'}}>
         {Object.entries(grouped).map(([mo, gms]) => (
           <div key={mo}>
-            <div style={{display:'flex',alignItems:'center',gap:8,margin:'14px 0 8px',paddingBottom:6,borderBottom:`2px solid ${C.green}`}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,margin:'8px 0 8px',paddingBottom:6,borderBottom:`2px solid ${C.green}`}}>
               <div style={{fontSize:14,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.3em',fontWeight:700}}>{mo}</div>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:7,marginBottom:4}}>
@@ -1607,9 +1607,9 @@ function CampanaPage({onBack, logoB64}) {
   const [matrixActive, setMatrixActive] = useState(false);
   const canvasRef = useRef(null);
 
-  // 45-second countdown to Matrix
+  // 10-second countdown to Matrix
   useEffect(() => {
-    const timer = setTimeout(() => setMatrixActive(true), 45000);
+    const timer = setTimeout(() => setMatrixActive(true), 10000);
     return () => clearTimeout(timer);
   }, []);
 
