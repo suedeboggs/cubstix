@@ -54,6 +54,15 @@ const C_DARK = {
 
 const ThemeContext = React.createContext(C);
 
+// Normalize subclaims: ensure all values are arrays (handles legacy string values from older data)
+function normalizeSubclaims(sc) {
+  return Object.fromEntries(
+    Object.entries(sc || {})
+      .map(([k, v]) => [k, Array.isArray(v) ? v : (v ? [v] : [])])
+      .filter(([, v]) => v.length > 0)
+  );
+}
+
 // Re-key subgroups so keys always match actual member names (handles renames)
 function normalizeSubgroups(subgroups, members) {
   const result = {};
@@ -399,19 +408,19 @@ const DEFAULT_MEMBERS = ["Jon","Mike / Al","Long","Max","Brad / Taylor","Meg / J
 const INITIAL_SUBGROUPS = {
   "Barrett's": ["Mary", "Jimmy"],
 };
-// Pre-assigned 2026 games per sub-member
+// Pre-assigned 2026 games per sub-member (values are arrays to support multi-attendee)
 const INITIAL_SUBCLAIMS = {
-  "2026-11": "Mary",  // 4/18 vs Mets
-  "2026-29": "Mary",  // 5/24 vs Astros
-  "2026-34": "Mary",  // 6/6 vs Giants
-  "2026-45": "Mary",  // 7/3 vs Cardinals
-  "2026-65": "Mary",  // 8/19 vs White Sox
-  "2026-14": "Jimmy", // 4/21 vs Phillies
-  "2026-17": "Jimmy", // 5/1 vs Diamondbacks
-  "2026-54": "Jimmy", // 7/31 vs Yankees
-  "2026-58": "Jimmy", // 8/4 vs Dodgers
-  "2026-66": "Jimmy", // 8/28 vs Reds
-  "2026-70": "Jimmy", // 9/1 vs Brewers
+  "2026-11": ["Mary"],  // 4/18 vs Mets
+  "2026-29": ["Mary"],  // 5/24 vs Astros
+  "2026-34": ["Mary"],  // 6/6 vs Giants
+  "2026-45": ["Mary"],  // 7/3 vs Cardinals
+  "2026-65": ["Mary"],  // 8/19 vs White Sox
+  "2026-14": ["Jimmy"], // 4/21 vs Phillies
+  "2026-17": ["Jimmy"], // 5/1 vs Diamondbacks
+  "2026-54": ["Jimmy"], // 7/31 vs Yankees
+  "2026-58": ["Jimmy"], // 8/4 vs Dodgers
+  "2026-66": ["Jimmy"], // 8/28 vs Reds
+  "2026-70": ["Jimmy"], // 9/1 vs Brewers
 };
 
 const CUBS_TEAM_ID = 112;
@@ -463,7 +472,7 @@ function loadState() {
     if (r) {
       const saved = JSON.parse(r);
       saved.claims = { ...CLAIMS_2026, ...saved.claims };
-      saved.subclaims = { ...INITIAL_SUBCLAIMS, ...(saved.subclaims || {}) };
+      saved.subclaims = normalizeSubclaims({ ...INITIAL_SUBCLAIMS, ...(saved.subclaims || {}) });
       if (!saved.subgroups) saved.subgroups = {...INITIAL_SUBGROUPS};
       return saved;
     }
@@ -623,7 +632,7 @@ function GameCard({game, year, claimed, subclaim, score, fetching, onClick}) {
         <div style={{fontSize:15,color:C.muted,marginTop:3,fontFamily:"'Montserrat',sans-serif"}}>
           {game.time}
           {claimed
-            ? <><span style={{color:C.blue,fontWeight:700}}> · {claimed}</span>{subclaim ? <span style={{display:'inline-block',marginLeft:5,background:C.blueMid,color:'#fff',fontSize:11,fontWeight:600,fontFamily:"'Montserrat',sans-serif",padding:'1px 7px',borderRadius:10,verticalAlign:'middle',letterSpacing:'0.02em'}}>{subclaim}</span> : null}</>
+            ? <><span style={{color:C.blue,fontWeight:700}}> · {claimed}</span>{(()=>{const subs=Array.isArray(subclaim)?subclaim:(subclaim?[subclaim]:[]);return subs.map(s=><span key={s} style={{display:'inline-block',marginLeft:5,background:C.blueMid,color:'#fff',fontSize:11,fontWeight:600,fontFamily:"'Montserrat',sans-serif",padding:'1px 7px',borderRadius:10,verticalAlign:'middle',letterSpacing:'0.02em'}}>{s}</span>);})()}</>
             : <span style={{color:C.border}}> · Unassigned</span>}
         </div>
         {game.ticketType && (
@@ -675,7 +684,7 @@ function Toast({message, onUndo, onDismiss}) {
 function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, onClaimChange, onSubclaimChange, beers, onBeer, subgroups, subclaims}) {
   const C = React.useContext(ThemeContext);
   const gameKey = `${year}-${game.id}`;
-  const currentSub = (subclaims && subclaims[gameKey]) || '';
+  const currentSubs = (() => { const v = subclaims && subclaims[gameKey]; return Array.isArray(v) ? v : (v ? [v] : []); })();
   const [details, setDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const past = isInPast(game.mlbDate);
@@ -813,7 +822,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
               <button key={m}
                 onClick={() => {
                   const newClaim = m === (claimed || '') ? '' : m;
-                  const prevSub = (subclaims && subclaims[gameKey]) || '';
+                  const prevSub = (subclaims && subclaims[gameKey]) || [];
                   onClaimChange && onClaimChange(game.id, year, newClaim, claimed || '', prevSub);
                 }}
                 style={{background:(claimed||'')==m?C.blue:'transparent',border:`1.5px solid ${(claimed||'')==m?C.blue:C.border}`,borderRadius:20,color:(claimed||'')==m?C.cream:C.ink,padding:'7px 14px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
@@ -829,7 +838,7 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
                 {currentSubMembers.map(sub => (
                   <button key={sub}
                     onClick={() => onSubclaimChange && onSubclaimChange(game.id, year, sub)}
-                    style={{background:currentSub===sub?C.blueMid:'transparent',border:`1.5px solid ${currentSub===sub?C.blueMid:C.border}`,borderRadius:20,color:currentSub===sub?'#fff':C.ink,padding:'6px 13px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
+                    style={{background:currentSubs.includes(sub)?C.blueMid:'transparent',border:`1.5px solid ${currentSubs.includes(sub)?C.blueMid:C.border}`,borderRadius:20,color:currentSubs.includes(sub)?'#fff':C.ink,padding:'6px 13px',fontSize:14,fontFamily:"'Montserrat',sans-serif",cursor:'pointer'}}
                   >{sub}</button>
                 ))}
               </div>
@@ -880,10 +889,11 @@ function GameModal({game, year, score, claimed, members, wrigleyB64, onClose, on
 }
 
 // ─── SCHEDULE TAB ────────────────────────────────────────────────────────────
-function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameClick, subclaims}) {
+function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameClick, subclaims, subgroups}) {
   const C = React.useContext(ThemeContext);
   const [monthFilter, setMonthFilter] = useState('all');
   const [memberFilter, setMemberFilter] = useState('all');
+  const [subMemberFilter, setSubMemberFilter] = useState('all');
   const [ticketFilter, setTicketFilter] = useState('all');
   const [openMenu, setOpenMenu] = useState(null); // 'month'|'member'|'ticket'|null
 
@@ -891,10 +901,14 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
   const SCHEDULE_MONTHS = ['MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER'];
   const availableMonths = SCHEDULE_MONTHS.filter(m => games.some(g => g.month === m));
 
+  // Sub-members for the currently selected shareholder
+  const currentSubMembers = (subgroups && memberFilter !== 'all' && subgroups[memberFilter]) || [];
+
   const filtered = games.filter(g => {
     const key = `${year}-${g.id}`;
     return (monthFilter === 'all' || g.month === monthFilter) &&
            (memberFilter === 'all' || claims[key] === memberFilter) &&
+           (subMemberFilter === 'all' || (()=>{const v=subclaims&&subclaims[key];const a=Array.isArray(v)?v:(v?[v]:[]);return a.includes(subMemberFilter);})()) &&
            (ticketFilter === 'all' || g.ticketType === ticketFilter);
   });
 
@@ -995,7 +1009,7 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
             <div style={dropdownStyle}>
               {[{val:'all',label:'Everyone'}, ...members.map(m => ({val:m,label:m}))].map(({val,label}) => (
                 <button key={val} style={menuItemStyle(memberFilter===val)}
-                  onClick={() => { setMemberFilter(val); setOpenMenu(null); }}>
+                  onClick={() => { setMemberFilter(val); setSubMemberFilter('all'); setOpenMenu(null); }}>
                   {label}
                 </button>
               ))}
@@ -1021,6 +1035,30 @@ function ScheduleTab({year, games, claims, scores, fetchingIds, members, onGameC
           )}
         </div>
       </div>
+
+      {/* Sub-member filter row — only visible when a member with sub-groups is selected */}
+      {currentSubMembers.length > 0 && (
+        <div style={{display:'flex', gap:6, padding:'0 14px 8px', justifyContent:'center'}}>
+          {['all', ...currentSubMembers].map(sub => (
+            <button key={sub}
+              onClick={() => setSubMemberFilter(sub)}
+              style={{
+                background: subMemberFilter === sub ? C.blueMid : 'transparent',
+                border: `1.5px solid ${subMemberFilter === sub ? C.blueMid : C.border}`,
+                borderRadius: 6,
+                color: subMemberFilter === sub ? '#fff' : C.ink,
+                padding: '5px 14px',
+                fontSize: 12,
+                fontFamily: "'Bebas Neue',sans-serif",
+                letterSpacing: '0.07em',
+                cursor: 'pointer',
+                transition: 'all 0.12s',
+              }}>
+              {sub === 'all' ? `All ${memberFilter.split('/')[0].trim()}` : sub}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Games by month */}
       <div style={{padding:'0 12px'}}>
@@ -1133,7 +1171,7 @@ function StatsTab({claims, scores, members, beers}) {
       {/* Beer Leaderboard */}
       {beerStats.some(b => b.totalBeers > 0) && (
         <div style={{marginTop:24}}>
-          <div style={{fontSize:14,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10,paddingLeft:2,display:'flex',alignItems:'center',gap:8}}>{window.ROGER_B64 && <img src={`data:image/png;base64,${window.ROGER_B64}`} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',border:`2px solid ${C.blue}`,flexShrink:0}}/>} THE ROGER MOST BEERS HAD TRACKER</div>
+          <div style={{fontSize:14,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em',marginBottom:10,paddingLeft:2,display:'flex',alignItems:'center',gap:8}}>{window.ROGER_B64 && <img src={`data:image/png;base64,${window.ROGER_B64}`} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',border:`2px solid ${C.blue}`,flexShrink:0}}/>} ROGER'S BEER TRACKER</div>
           {beerStats.filter(b => b.totalBeers > 0).map((b, i) => (
             <div key={b.name} style={{display:'flex',alignItems:'center',gap:12,background:C.cream,border:`1px solid ${C.border}`,borderLeft:`4px solid ${i===0?C.blue:i===1?'#9AA5B1':i===2?'#B87C3A':C.border}`,borderRadius:7,padding:'10px 13px',marginBottom:8}}>
               <div style={{fontSize:20,minWidth:28,textAlign:'center'}}>{i<3?MEDAL[i]:`#${i+1}`}</div>
@@ -1809,7 +1847,7 @@ function App() {
         setState(prev => ({
           ...cleanData,
           claims:    { ...CLAIMS_2026,       ...cleanData.claims },
-          subclaims: { ...INITIAL_SUBCLAIMS,  ...(cleanData.subclaims  || {}) },
+          subclaims: normalizeSubclaims({ ...INITIAL_SUBCLAIMS, ...(cleanData.subclaims || {}) }),
           subgroups: normalizeSubgroups(cleanData.subgroups || {...INITIAL_SUBGROUPS}, membersList),
           beers:     cleanData.beers     || {},
         }));
@@ -1891,11 +1929,24 @@ function App() {
       return {...prev, beers};
     });
   };
-  const saveSubclaim = (gameId, yr, subMember) => {
+  // Direct setter — replaces subclaims for a game with the given array (or clears if empty)
+  const saveSubclaim = (gameId, yr, subMembers) => {
     const key = `${yr}-${gameId}`;
     setState(prev => {
       const subclaims = {...(prev.subclaims || {})};
-      if (!subMember) delete subclaims[key]; else subclaims[key] = subMember;
+      const arr = Array.isArray(subMembers) ? subMembers : (subMembers ? [subMembers] : []);
+      if (arr.length === 0) delete subclaims[key]; else subclaims[key] = arr;
+      return {...prev, subclaims};
+    });
+  };
+  // Toggle a single sub-member in/out of a game's attendee list
+  const toggleSubclaim = (gameId, yr, subMember) => {
+    const key = `${yr}-${gameId}`;
+    setState(prev => {
+      const subclaims = {...(prev.subclaims || {})};
+      const cur = Array.isArray(subclaims[key]) ? subclaims[key] : (subclaims[key] ? [subclaims[key]] : []);
+      const next = cur.includes(subMember) ? cur.filter(s => s !== subMember) : [...cur, subMember];
+      if (next.length === 0) delete subclaims[key]; else subclaims[key] = next;
       return {...prev, subclaims};
     });
   };
@@ -1933,7 +1984,7 @@ function App() {
   };
 
   const handleSubclaimChange = (gameId, yr, subMember) => {
-    saveSubclaim(gameId, yr, subMember);
+    toggleSubclaim(gameId, yr, subMember);
   };
 
   const addSubMember = (member, name) => {
@@ -1954,7 +2005,9 @@ function App() {
         ? {...subgroups, [member]: updated}
         : Object.fromEntries(Object.entries(subgroups).filter(([k]) => k !== member));
       const subclaims = Object.fromEntries(
-        Object.entries(prev.subclaims || {}).filter(([,v]) => v !== name)
+        Object.entries(prev.subclaims || {})
+          .map(([k,v])=>{const a=(Array.isArray(v)?v:(v?[v]:[])).filter(s=>s!==name);return a.length?[k,a]:null;})
+          .filter(Boolean)
       );
       return {...prev, subgroups: newSubgroups, subclaims};
     });
@@ -1966,7 +2019,9 @@ function App() {
       const subgroups = {...(prev.subgroups || {})};
       const updated = (subgroups[member] || []).map(x => x === oldName ? n : x);
       const subclaims = Object.fromEntries(
-        Object.entries(prev.subclaims || {}).map(([k,v]) => [k, v === oldName ? n : v])
+        Object.entries(prev.subclaims || {})
+          .map(([k,v])=>[k,(Array.isArray(v)?v:(v?[v]:[])).map(s=>s===oldName?n:s)])
+          .filter(([,a])=>a.length>0)
       );
       return {...prev, subgroups: {...subgroups, [member]: updated}, subclaims};
     });
@@ -2100,7 +2155,7 @@ function App() {
         paddingBottom: `calc(${NAV_H}px + env(safe-area-inset-bottom) + 8px)`,
         transition: 'padding-top 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
-        {tab==='schedule' && <ScheduleTab     year={year} games={games} claims={state.claims} scores={allScores} fetchingIds={fetchingIds} members={state.members} onGameClick={setSelectedGame} subclaims={state.subclaims||{}}/>}
+        {tab==='schedule' && <ScheduleTab     year={year} games={games} claims={state.claims} scores={allScores} fetchingIds={fetchingIds} members={state.members} onGameClick={setSelectedGame} subclaims={state.subclaims||{}} subgroups={state.subgroups||{}}/>}
         {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members} beers={state.beers||{}}/>}
         {tab==='board'    && <LeaderboardTab  claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='standings' && <StandingsTab/>}
