@@ -1608,7 +1608,7 @@ function StandingsTab() {
   );
 }
 // ─── SETTINGS TAB ─────────────────────────────────────────────────────────────
-function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, onToggleDark, fbReady, subgroups, onAddSubMember, onRemoveSubMember, onRenameSubMember}) {
+function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, onToggleDark, fbReady, fbConnected, subgroups, onAddSubMember, onRemoveSubMember, onRenameSubMember}) {
   const C = React.useContext(ThemeContext);
   const isDark = C === C_DARK;
   const [showBIFB, setShowBIFB] = useState(false);
@@ -1770,8 +1770,8 @@ function RosterTab({members, setMembers, renameMember, onRefresh, lastUpdated, o
 
       <Section title="LIVE SCORE SYNC">
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-          <div style={{width:9,height:9,borderRadius:'50%',background:fbReady?'#4ade80':'rgba(255,255,255,0.35)',boxShadow:fbReady?'0 0 6px #4ade80':'none',flexShrink:0,transition:'background 0.5s'}}/>
-          <div style={{fontSize:13,color:'rgba(255,255,255,0.75)',fontFamily:"'Montserrat',sans-serif"}}>{fbReady ? 'Live — syncing with all shareholders' : 'Connecting to shared database…'}</div>
+          <div style={{width:9,height:9,borderRadius:'50%',background:fbConnected===true?'#4ade80':fbConnected===false?'#f87171':'rgba(255,255,255,0.35)',boxShadow:fbConnected===true?'0 0 6px #4ade80':fbConnected===false?'0 0 6px #f87171':'none',flexShrink:0,transition:'background 0.5s'}}/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,0.75)',fontFamily:"'Montserrat',sans-serif"}}>{fbConnected===true ? 'Live — syncing with all shareholders' : fbConnected===false ? 'Not connected — changes are local only' : 'Connecting to shared database…'}</div>
         </div>
         <div style={{fontSize:15,color:'rgba(255,255,255,0.85)',fontFamily:"'Montserrat',sans-serif",lineHeight:1.7,marginBottom:14}}>
           2025 results are locked. 2026 scores update automatically from the MLB Stats API.
@@ -2010,6 +2010,7 @@ function App() {
     try { return localStorage.getItem('cubs-dark') === 'true'; } catch { return false; }
   });
   const [fbReady, setFbReady]        = useState(false);
+  const [fbConnected, setFbConnected] = useState(null); // null=pending, true=ok, false=failed
   const skipRead  = useRef(0); // skip our own write echoing back from Firebase (counter)
   const skipWrite = useRef(false); // skip write when Firebase pushes an update to us
 
@@ -2048,6 +2049,7 @@ function App() {
     let localHandler = null;
     firebase.auth().signInAnonymously()
       .then(() => {
+        setFbConnected(true);
         DB = firebase.database().ref('cubs-tracker-v8');
         localHandler = DB.on('value', snap => {
           if (skipRead.current > 0) { skipRead.current--; return; }
@@ -2076,6 +2078,7 @@ function App() {
       })
       .catch(e => {
         console.warn('Firebase auth failed — local-only mode', e);
+        setFbConnected(false);
         setFbReady(true);
       });
     return () => { if (DB && localHandler !== null) DB.off('value', localHandler); };
@@ -2095,7 +2098,7 @@ function App() {
     skipRead.current = 2; // expect optimistic echo + possible rollback on failure
     DB.set({...state, _ts: ts})
       .then(() => { if (skipRead.current > 0) skipRead.current--; })
-      .catch(() => {});
+      .catch(e => { console.warn('Firebase write failed:', e); setFbConnected(false); });
   }, [state, fbReady]);
 
   useEffect(() => {
@@ -2382,7 +2385,7 @@ function App() {
         {tab==='stats'    && <StatsTab        claims={state.claims} scores={allScores} members={state.members} beers={state.beers||{}}/>}
         {tab==='board'    && <LeaderboardTab  claims={state.claims} scores={allScores} members={state.members}/>}
         {tab==='standings' && <StandingsTab/>}
-        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated} onToggleDark={() => setDarkMode(d => !d)} fbReady={fbReady} subgroups={state.subgroups||{}} onAddSubMember={addSubMember} onRemoveSubMember={removeSubMember} onRenameSubMember={renameSubMember}/>}
+        {tab==='roster'   && <RosterTab       members={state.members} setMembers={setMembers} renameMember={renameMember} onRefresh={fetchAllScores} lastUpdated={lastUpdated} onToggleDark={() => setDarkMode(d => !d)} fbReady={fbReady} fbConnected={fbConnected} subgroups={state.subgroups||{}} onAddSubMember={addSubMember} onRemoveSubMember={removeSubMember} onRenameSubMember={renameSubMember}/>}
       </div>
 
       {/* ── SCROLL TO TOP FAB ── */}
