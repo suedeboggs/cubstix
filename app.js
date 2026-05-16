@@ -1479,16 +1479,16 @@ const COL_HDR = {
   letterSpacing:'0.12em', padding:'8px 6px', textAlign:'center'
 };
 
-// MLB division IDs
+// MLB division IDs — Central first
 const MLB_DIVS = {
   AL: [
-    { id:201, name:'AL East'    },
     { id:202, name:'AL Central' },
+    { id:201, name:'AL East'    },
     { id:200, name:'AL West'    },
   ],
   NL: [
-    { id:204, name:'NL East'    },
     { id:205, name:'NL Central' },
+    { id:204, name:'NL East'    },
     { id:203, name:'NL West'    },
   ],
 };
@@ -1504,20 +1504,25 @@ const TX_COLORS = {
   'Trade':                     '#8B4513',
 };
 
-// Stat leader categories
+// Stat leader categories — apiKey matches what MLB API returns, statGroup filters correct group
 const LEADER_CATS = [
-  { key:'battingAverage',   label:'Batting Average', group:'bat' },
-  { key:'homeRuns',         label:'Home Runs',       group:'bat' },
-  { key:'rbi',              label:'RBI',             group:'bat' },
-  { key:'stolenBases',      label:'Stolen Bases',    group:'bat' },
-  { key:'wins',             label:'Wins',            group:'pit' },
-  { key:'earnedRunAverage', label:'ERA',             group:'pit' },
-  { key:'strikeOuts',       label:'Strikeouts',      group:'pit' },
-  { key:'saves',            label:'Saves',           group:'pit' },
+  { key:'battingAverage',   apiKey:'battingAverage',   label:'Batting Average', group:'bat', statGroup:'hitting'  },
+  { key:'homeRuns',         apiKey:'homeRuns',          label:'Home Runs',       group:'bat', statGroup:'hitting'  },
+  { key:'rbi',              apiKey:'runsBattedIn',      label:'RBI',             group:'bat', statGroup:'hitting'  },
+  { key:'stolenBases',      apiKey:'stolenBases',       label:'Stolen Bases',    group:'bat', statGroup:'hitting'  },
+  { key:'wins',             apiKey:'wins',              label:'Wins',            group:'pit', statGroup:'pitching' },
+  { key:'earnedRunAverage', apiKey:'earnedRunAverage',  label:'ERA',             group:'pit', statGroup:'pitching' },
+  { key:'strikeOuts',       apiKey:'strikeouts',        label:'Strikeouts',      group:'pit', statGroup:'pitching' },
+  { key:'saves',            apiKey:'saves',             label:'Saves',           group:'pit', statGroup:'pitching' },
 ];
 
 function fmtDateYMD(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function fmtDateLong(ymd) {
+  const d = new Date(ymd + 'T12:00:00');
+  return d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
 }
 
 function getMLBDates() {
@@ -1530,35 +1535,35 @@ function getMLBDates() {
 
 function DivTable({ rows, label, C }) {
   const cols = '1fr 30px 30px 40px 36px 38px 38px';
-  const hdr = { background:C.green, color:'rgba(255,255,255,0.65)', fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.12em', padding:'6px 4px', textAlign:'center' };
+  const hdrCell = { background:C.green, color:'rgba(255,255,255,0.75)', fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.12em', padding:'6px 4px', textAlign:'center' };
   return (
-    <div style={{marginBottom:14}}>
-      <div style={{background:C.green, borderRadius:'6px 6px 0 0', padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:'rgba(255,255,255,0.65)'}}>
+    <div style={{marginBottom:14, borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}`}}>
+      <div style={{background:C.green, padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:C.cream}}>
         {label}
       </div>
       <div style={{display:'grid', gridTemplateColumns:cols, background:C.green, borderTop:'1px solid rgba(255,255,255,0.12)'}}>
-        <div style={{...hdr, textAlign:'left', paddingLeft:10}}>TEAM</div>
-        {['W','L','PCT','GB','L10','STK'].map(h => <div key={h} style={hdr}>{h}</div>)}
+        <div style={{...hdrCell, textAlign:'left', paddingLeft:12}}>TEAM</div>
+        {['W','L','PCT','GB','L10','STK'].map(h => <div key={h} style={hdrCell}>{h}</div>)}
       </div>
-      <div style={{background:C.green, borderRadius:'0 0 6px 6px', overflow:'hidden'}}>
+      <div style={{background:C.cream2}}>
         {rows.map((row, i) => {
           const ic = row.isCubs;
           return (
             <div key={row.teamId} style={{
               display:'grid', gridTemplateColumns:cols,
-              background: ic ? 'rgba(255,255,255,0.18)' : (i%2===0 ? 'rgba(255,255,255,0.06)' : 'transparent'),
-              borderBottom: i < rows.length-1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+              background: ic ? `${C.blue}18` : 'transparent',
+              borderBottom: i < rows.length-1 ? `1px solid ${C.border}` : 'none',
             }}>
-              <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px'}}>
-                <img src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`} style={{width:18,height:18,objectFit:'contain',flexShrink:0}} alt=""/>
-                <span style={{fontSize:13, fontWeight:700, color: ic?'#fff':'rgba(255,255,255,0.88)', fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.05em'}}>{row.abbr}</span>
+              <div style={{display:'flex', alignItems:'center', gap:8, padding:'9px 12px'}}>
+                <img src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`} style={{width:20,height:20,objectFit:'contain',flexShrink:0}} alt=""/>
+                <span style={{fontSize:13, fontWeight:700, color: ic?C.blue:C.ink, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.04em'}}>{row.name}</span>
               </div>
               {[row.w, row.l, row.pct, row.gb==='0.0'?'-':row.gb, row.last10, row.streak].map((val,ci) => (
                 <div key={ci} style={{
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize: ci<2 ? 13 : 11,
-                  fontWeight: ci<2 ? 700 : 400,
-                  color: ic ? '#fff' : (ci<2 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)'),
+                  fontWeight: ci<2 ? 700 : 500,
+                  color: ic ? C.blue : (ci<2 ? C.ink : C.muted),
                   fontFamily: ci<2 ? "'Bebas Neue',sans-serif" : "'Montserrat',sans-serif",
                   padding:'3px 2px',
                 }}>{val}</div>
@@ -1575,38 +1580,47 @@ function WildCardTable({ leagueKey, standings, C }) {
   const divIds = MLB_DIVS[leagueKey].map(d => d.id);
   const allTeams = divIds.flatMap(id => (standings[id] || []).map((t,i) => ({...t, divRank:i})));
   const wcTeams = allTeams.filter(t => t.divRank > 0).sort((a,b) => b.w-a.w || a.l-b.l).slice(0,8);
+  // 3rd WC team is the cutoff — teams below it show GB relative to it
+  const cutoff = wcTeams[2];
   const cols = '1fr 30px 30px 40px 38px 38px';
-  const hdr = { background:C.green, color:'rgba(255,255,255,0.65)', fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.12em', padding:'6px 4px', textAlign:'center' };
+  const hdrCell = { background:C.green, color:'rgba(255,255,255,0.75)', fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.12em', padding:'6px 4px', textAlign:'center' };
   return (
-    <div style={{marginBottom:14}}>
-      <div style={{background:C.green, borderRadius:'6px 6px 0 0', padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:'rgba(255,255,255,0.65)'}}>
+    <div style={{marginBottom:14, borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}`}}>
+      <div style={{background:C.green, padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:C.cream}}>
         {leagueKey} WILD CARD
       </div>
       <div style={{display:'grid', gridTemplateColumns:cols, background:C.green, borderTop:'1px solid rgba(255,255,255,0.12)'}}>
-        <div style={{...hdr, textAlign:'left', paddingLeft:10}}>TEAM</div>
-        {['W','L','PCT','GB','L10'].map(h => <div key={h} style={hdr}>{h}</div>)}
+        <div style={{...hdrCell, textAlign:'left', paddingLeft:12}}>TEAM</div>
+        {['W','L','PCT','WCGB','L10'].map(h => <div key={h} style={hdrCell}>{h}</div>)}
       </div>
-      <div style={{background:C.green, borderRadius:'0 0 6px 6px', overflow:'hidden'}}>
+      <div style={{background:C.cream2}}>
         {wcTeams.map((row,i) => {
           const ic = row.isCubs;
+          const inWC = i < 3;
+          // GB: top 3 show '-'; below cutoff compute vs 3rd WC team
+          let wcgb = '-';
+          if (!inWC && cutoff) {
+            const diff = ((cutoff.w - row.w) + (row.l - cutoff.l)) / 2;
+            wcgb = diff <= 0 ? '-' : diff % 1 === 0 ? String(diff) : diff.toFixed(1);
+          }
           return (
             <div key={row.teamId}>
-              {i === 3 && <div style={{height:2, background:'rgba(255,255,255,0.3)'}}/>}
+              {i === 3 && <div style={{height:2, background:C.blue, opacity:0.4}}/>}
               <div style={{
                 display:'grid', gridTemplateColumns:cols,
-                background: ic ? 'rgba(255,255,255,0.18)' : (i%2===0 ? 'rgba(255,255,255,0.06)' : 'transparent'),
-                borderBottom: i < wcTeams.length-1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                background: ic ? `${C.blue}18` : 'transparent',
+                borderBottom: i < wcTeams.length-1 ? `1px solid ${C.border}` : 'none',
               }}>
-                <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px'}}>
-                  <img src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`} style={{width:18,height:18,objectFit:'contain',flexShrink:0}} alt=""/>
-                  <span style={{fontSize:13, fontWeight:700, color: ic?'#fff':'rgba(255,255,255,0.88)', fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.05em'}}>{row.abbr}</span>
+                <div style={{display:'flex', alignItems:'center', gap:8, padding:'9px 12px'}}>
+                  <img src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`} style={{width:20,height:20,objectFit:'contain',flexShrink:0}} alt=""/>
+                  <span style={{fontSize:13, fontWeight:700, color: ic?C.blue:C.ink, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.04em'}}>{row.name}</span>
                 </div>
-                {[row.w, row.l, row.pct, row.gb==='0.0'?'-':row.gb, row.last10].map((val,ci) => (
+                {[row.w, row.l, row.pct, wcgb, row.last10].map((val,ci) => (
                   <div key={ci} style={{
                     display:'flex', alignItems:'center', justifyContent:'center',
                     fontSize: ci<2 ? 13 : 11,
-                    fontWeight: ci<2 ? 700 : 400,
-                    color: ic ? '#fff' : (ci<2 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)'),
+                    fontWeight: ci<2 ? 700 : 500,
+                    color: ic ? C.blue : (ci<2 ? C.ink : C.muted),
                     fontFamily: ci<2 ? "'Bebas Neue',sans-serif" : "'Montserrat',sans-serif",
                     padding:'3px 2px',
                   }}>{val}</div>
@@ -1626,16 +1640,16 @@ function StandingsSection({ standings, loading, C, league, setLeague }) {
   if (loading) return <div style={{textAlign:'center',padding:'40px 0'}}><Spinner size={20} color={C.blue}/></div>;
   if (!standings) return null;
   const btnStyle = (active) => ({
-    flex:1, padding:'8px 0', border:'none', borderRadius:6, cursor:'pointer',
+    flex:1, padding:'9px 0', border:'none', borderRadius:6, cursor:'pointer',
     background: active ? C.green : C.cream2,
     color: active ? C.cream : C.muted,
-    fontFamily:"'Bebas Neue',sans-serif", fontSize:15, letterSpacing:'0.15em',
+    fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.15em',
   });
   return (
     <div>
       <div style={{display:'flex', gap:6, marginBottom:14}}>
-        <button style={btnStyle(league==='AL')} onClick={()=>setLeague('AL')}>AMERICAN LEAGUE</button>
         <button style={btnStyle(league==='NL')} onClick={()=>setLeague('NL')}>NATIONAL LEAGUE</button>
+        <button style={btnStyle(league==='AL')} onClick={()=>setLeague('AL')}>AMERICAN LEAGUE</button>
       </div>
       {MLB_DIVS[league].map(d => (
         <DivTable key={d.id} rows={standings[d.id]||[]} label={d.name} C={C}/>
@@ -1696,7 +1710,7 @@ function ScoresSection({ scores, loading, C, yesterday }) {
       <div style={{marginBottom:10, borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}`}}>
         <div style={{background:C.green, padding:'7px 12px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.08em', color:C.cream}}>
-            {awayWon?g.away:g.home} {awayWon?g.awayScore:g.homeScore}, {awayWon?g.home:g.away} {awayWon?g.homeScore:g.awayScore}
+            {awayWon?g.awayName:g.homeName} {awayWon?g.awayScore:g.homeScore}, {awayWon?g.homeName:g.awayName} {awayWon?g.homeScore:g.awayScore}
           </span>
           <span style={{fontSize:10, color:'rgba(255,255,255,0.55)', fontFamily:"'Montserrat',sans-serif"}}>{g.status==='Final'?'FINAL':g.status}</span>
         </div>
@@ -1705,7 +1719,7 @@ function ScoresSection({ scores, loading, C, yesterday }) {
             <table style={{width:'100%', borderCollapse:'collapse', fontSize:11, fontFamily:"'Montserrat',sans-serif", minWidth:300}}>
               <thead>
                 <tr style={{background:C.cream3}}>
-                  <th style={{padding:'4px 8px', textAlign:'left', color:C.muted, fontWeight:600, fontSize:10, minWidth:38}}>TEAM</th>
+                  <th style={{padding:'4px 8px', textAlign:'left', color:C.muted, fontWeight:600, fontSize:10, minWidth:80}}>TEAM</th>
                   {innings.map((_,i)=><th key={i} style={{padding:'4px 3px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10, minWidth:18}}>{i+1}</th>)}
                   <th style={{padding:'4px 6px', textAlign:'center', color:C.ink, fontWeight:700, fontSize:10, borderLeft:`1px solid ${C.border}`}}>R</th>
                   <th style={{padding:'4px 5px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10}}>H</th>
@@ -1714,14 +1728,14 @@ function ScoresSection({ scores, loading, C, yesterday }) {
               </thead>
               <tbody>
                 <tr style={{background:C.cream2}}>
-                  <td style={{padding:'5px 8px', fontWeight:700, color:awayWon?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.away}</td>
+                  <td style={{padding:'5px 8px', fontWeight:700, color:awayWon?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.awayName}</td>
                   {innings.map((inn,i)=><td key={i} style={{padding:'5px 3px', textAlign:'center', color:C.ink}}>{inn.away?.runs??''}</td>)}
                   <td style={{padding:'5px 6px', textAlign:'center', fontWeight:700, color:awayWon?C.blue:C.ink, borderLeft:`1px solid ${C.border}`}}>{g.awayScore}</td>
                   <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.awayHits}</td>
                   <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.awayErrors}</td>
                 </tr>
                 <tr style={{borderTop:`1px solid ${C.border}`}}>
-                  <td style={{padding:'5px 8px', fontWeight:700, color:homeWon?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.home}</td>
+                  <td style={{padding:'5px 8px', fontWeight:700, color:homeWon?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.homeName}</td>
                   {innings.map((inn,i)=><td key={i} style={{padding:'5px 3px', textAlign:'center', color:C.ink}}>{inn.home?.runs??''}</td>)}
                   <td style={{padding:'5px 6px', textAlign:'center', fontWeight:700, color:homeWon?C.blue:C.ink, borderLeft:`1px solid ${C.border}`}}>{g.homeScore}</td>
                   <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.homeHits}</td>
@@ -1750,7 +1764,7 @@ function ScoresSection({ scores, loading, C, yesterday }) {
 
   return (
     <div>
-      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.18em', color:C.muted, marginBottom:10}}>{yesterday} · {scores.length} GAMES</div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.12em', color:C.muted, marginBottom:12, textAlign:'center'}}>{fmtDateLong(yesterday)}</div>
       {sorted.map(g=><BoxScore key={g.gamePk} g={g}/>)}
     </div>
   );
@@ -1763,9 +1777,9 @@ function TodaySection({ games, loading, C, today }) {
 
   return (
     <div>
-      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.18em', color:C.muted, marginBottom:10}}>{today} · {games.length} GAMES</div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.12em', color:C.muted, marginBottom:12, textAlign:'center'}}>{fmtDateLong(today)}</div>
       {games.map(g => {
-        const isCubsGame = g.away==='CHC'||g.home==='CHC';
+        const isCubsGame = g.awayId===112||g.homeId===112;
         const isLive = g.status==='Live';
         const isFinal = g.status==='Final';
         const showScore = isLive || isFinal;
@@ -1773,20 +1787,21 @@ function TodaySection({ games, loading, C, today }) {
           <div key={g.gamePk} style={{marginBottom:10, padding:'11px 12px', borderRadius:8, background:isCubsGame?`${C.blue}15`:C.cream2, border:`1px solid ${isCubsGame?C.blue:C.border}`}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div style={{flex:1, minWidth:0}}>
-                {[{team:g.away, prob:g.awayProb, score:g.awayScore, won:g.awayScore>g.homeScore},
-                  {team:g.home, prob:g.homeProb, score:g.homeScore, won:g.homeScore>g.awayScore}].map((side,si) => (
-                  <div key={si} style={{display:'flex', alignItems:'center', gap:8, marginBottom:si===0?5:0}}>
-                    <span style={{fontSize:15, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.06em', color:isFinal&&side.won?C.blue:C.ink, minWidth:32, flexShrink:0}}>{side.team}</span>
+                {[{id:g.awayId, prob:g.awayProb, score:g.awayScore, won:g.awayScore>g.homeScore},
+                  {id:g.homeId, prob:g.homeProb, score:g.homeScore, won:g.homeScore>g.awayScore}].map((side,si) => (
+                  <div key={si} style={{display:'flex', alignItems:'center', gap:10, marginBottom:si===0?6:0}}>
+                    <img src={`https://www.mlbstatic.com/team-logos/${side.id}.svg`} style={{width:28,height:28,objectFit:'contain',flexShrink:0}} alt=""/>
                     {side.prob && (
-                      <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                      <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>
                         {side.prob.fullName}
                       </span>
                     )}
-                    {showScore && <span style={{marginLeft:'auto', fontSize:16, fontWeight:800, fontFamily:"'Bebas Neue',sans-serif", color:isFinal&&side.won?C.blue:C.ink, flexShrink:0}}>{side.score}</span>}
+                    {!side.prob && <span style={{flex:1}}/>}
+                    {showScore && <span style={{fontSize:18, fontWeight:800, fontFamily:"'Bebas Neue',sans-serif", color:isFinal&&side.won?C.blue:C.ink, flexShrink:0}}>{side.score}</span>}
                   </div>
                 ))}
               </div>
-              <div style={{flexShrink:0, marginLeft:10, textAlign:'right'}}>
+              <div style={{flexShrink:0, marginLeft:12, textAlign:'right'}}>
                 {isLive
                   ? <span style={{fontSize:12, color:C.red, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.1em'}}>● LIVE</span>
                   : isFinal
@@ -1808,7 +1823,7 @@ function MovesSection({ transactions, loading, C, yesterday }) {
   if (transactions.length === 0) return <div style={{textAlign:'center',padding:'40px',color:C.muted,fontSize:14}}>No transactions</div>;
   return (
     <div>
-      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.18em', color:C.muted, marginBottom:10}}>{yesterday} · {transactions.length} TRANSACTIONS</div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.12em', color:C.muted, marginBottom:12, textAlign:'center'}}>{fmtDateLong(yesterday)}</div>
       {transactions.map((t,i) => (
         <div key={i} style={{marginBottom:8, padding:'10px 12px', borderRadius:8, background:C.cream2, border:`1px solid ${C.border}`}}>
           <span style={{display:'inline-block', fontSize:10, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.08em', color:'#fff', background:TX_COLORS[t.type]||C.muted, borderRadius:4, padding:'2px 7px', marginBottom:5}}>{t.type}</span>
@@ -1831,6 +1846,7 @@ function StandingsTab() {
   const [todayGames,   setTodayGames]   = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [loadingMap,   setLoadingMap]   = useState({standings:false,leaders:false,scores:false,today:false,moves:false});
+  const isAnyLoading = Object.values(loadingMap).some(Boolean);
 
   const { today, yesterday } = getMLBDates();
   const setLoad = (key,val) => setLoadingMap(p=>({...p,[key]:val}));
@@ -1852,6 +1868,7 @@ function StandingsTab() {
         const divId = rec.division?.id;
         byDiv[divId] = (rec.teamRecords||[]).map(r => ({
           teamId: r.team.id,
+          name:   r.team.name || r.team.teamName || r.team.abbreviation,
           abbr:   r.team.abbreviation,
           w:      r.wins??0, l: r.losses??0,
           pct:    r.winningPercentage??'.000',
@@ -1870,12 +1887,18 @@ function StandingsTab() {
     setLoad('leaders',true);
     try {
       const season = new Date().getFullYear();
-      const cats = LEADER_CATS.map(c=>c.key).join(',');
-      const res = await fetch(`https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=${cats}&season=${season}&limit=5&sportId=1&statType=season`);
+      const res = await fetch(`https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,stolenBases,wins,earnedRunAverage,strikeOuts,saves&season=${season}&limit=5&sportId=1&statType=season`);
       const json = await res.json();
       const bycat = {};
       for (const g of (json.leagueLeaders||[])) {
-        bycat[g.leaderCategory] = (g.leaders||[]).map(l=>({name:l.person?.fullName||'—', team:l.team?.abbreviation||'—', value:l.value??'—'}));
+        const cat = LEADER_CATS.find(c => c.apiKey === g.leaderCategory && c.statGroup === g.statGroup);
+        if (cat && !bycat[cat.key]) {
+          bycat[cat.key] = (g.leaders||[]).slice(0,5).map(l=>({
+            name:  l.person?.fullName||'—',
+            team:  l.team?.name||'—',
+            value: l.value??'—',
+          }));
+        }
       }
       setLeaders(bycat);
     } catch(e) { setLeaders({}); }
@@ -1889,14 +1912,17 @@ function StandingsTab() {
       const json = await res.json();
       const games = json.dates?.[0]?.games||[];
       setScores(games.map(g=>({
-        gamePk: g.gamePk,
-        away: g.teams.away.team.abbreviation, home: g.teams.home.team.abbreviation,
+        gamePk:    g.gamePk,
+        away:      g.teams.away.team.abbreviation,
+        home:      g.teams.home.team.abbreviation,
+        awayName:  g.teams.away.team.name || g.teams.away.team.teamName,
+        homeName:  g.teams.home.team.name || g.teams.home.team.teamName,
         awayScore: g.teams.away.score??null, homeScore: g.teams.home.score??null,
-        status: g.status.abstractGameState,
-        innings: g.linescore?.innings||[],
-        winner: g.decisions?.winner?.fullName, loser: g.decisions?.loser?.fullName, save: g.decisions?.save?.fullName,
-        awayHits: g.linescore?.teams?.away?.hits??'', homeHits: g.linescore?.teams?.home?.hits??'',
-        awayErrors: g.linescore?.teams?.away?.errors??'', homeErrors: g.linescore?.teams?.home?.errors??'',
+        status:    g.status.abstractGameState,
+        innings:   g.linescore?.innings||[],
+        winner:    g.decisions?.winner?.fullName, loser: g.decisions?.loser?.fullName, save: g.decisions?.save?.fullName,
+        awayHits:  g.linescore?.teams?.away?.hits??'', homeHits: g.linescore?.teams?.home?.hits??'',
+        awayErrors:g.linescore?.teams?.away?.errors??'', homeErrors: g.linescore?.teams?.home?.errors??'',
       })));
     } catch(e) { setScores([]); }
     setLoad('scores',false);
@@ -1909,12 +1935,16 @@ function StandingsTab() {
       const json = await res.json();
       const games = json.dates?.[0]?.games||[];
       setTodayGames(games.map(g=>({
-        gamePk: g.gamePk,
-        away: g.teams.away.team.abbreviation, home: g.teams.home.team.abbreviation,
+        gamePk:   g.gamePk,
+        awayId:   g.teams.away.team.id,
+        homeId:   g.teams.home.team.id,
+        away:     g.teams.away.team.abbreviation,
+        home:     g.teams.home.team.abbreviation,
         awayScore: g.teams.away.score, homeScore: g.teams.home.score,
-        awayProb: g.teams.away.probablePitcher||null, homeProb: g.teams.home.probablePitcher||null,
-        status: g.status.abstractGameState,
-        gameTime: g.gameDate ? new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET' : '',
+        awayProb:  g.teams.away.probablePitcher||null,
+        homeProb:  g.teams.home.probablePitcher||null,
+        status:    g.status.abstractGameState,
+        gameTime:  g.gameDate ? new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET' : '',
       })));
     } catch(e) { setTodayGames([]); }
     setLoad('today',false);
@@ -1930,7 +1960,14 @@ function StandingsTab() {
     setLoad('moves',false);
   }, [yesterday]);
 
-  // Load standings immediately; lazy-load everything else
+  const handleRefresh = () => {
+    fetchStandings();
+    if (leaders)      fetchLeaders();
+    if (scores)       fetchScores();
+    if (todayGames)   fetchToday();
+    if (transactions) fetchTransactions();
+  };
+
   useEffect(() => { fetchStandings(); }, []);
   useEffect(() => {
     if (section==='leaders'  && !leaders)      fetchLeaders();
@@ -1940,26 +1977,40 @@ function StandingsTab() {
   }, [section]);
 
   const SECTIONS = [
-    {key:'standings', label:'Standings'},
-    {key:'leaders',   label:'Leaders'  },
-    {key:'scores',    label:'Scores'   },
-    {key:'today',     label:'Today'    },
-    {key:'moves',     label:'Moves'    },
+    {key:'standings', label:'Standings'    },
+    {key:'leaders',   label:'Leaders'      },
+    {key:'scores',    label:'Scores'       },
+    {key:'today',     label:"Today's Games"},
+    {key:'moves',     label:'Moves'        },
   ];
 
   const pillStyle = (active) => ({
-    padding:'7px 12px', borderRadius:20, border:'none', cursor:'pointer', whiteSpace:'nowrap',
+    flex:1, padding:'8px 2px', borderRadius:20, border:'none', cursor:'pointer',
     background: active ? C.blue : 'transparent',
     color: active ? '#fff' : C.muted,
-    fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.1em',
+    fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.06em',
+    textAlign:'center',
   });
 
   return (
     <div style={{paddingBottom:16}}>
-      <div style={{display:'flex', gap:4, overflowX:'auto', padding:'12px 12px 8px', borderBottom:`1px solid ${C.border}`, WebkitOverflowScrolling:'touch', scrollbarWidth:'none'}}>
-        {SECTIONS.map(s=>(
-          <button key={s.key} style={pillStyle(section===s.key)} onClick={()=>setSection(s.key)}>{s.label}</button>
-        ))}
+      <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px', borderBottom:`1px solid ${C.border}`}}>
+        <button
+          onClick={handleRefresh}
+          disabled={isAnyLoading}
+          style={{
+            flexShrink:0, padding:'7px 10px', borderRadius:8,
+            border:`1.5px solid ${C.green}`, background:'transparent',
+            color:C.green, cursor:'pointer',
+            fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.1em',
+            opacity: isAnyLoading ? 0.5 : 1,
+          }}
+        >{isAnyLoading ? '…' : '↻ Refresh'}</button>
+        <div style={{display:'flex', flex:1}}>
+          {SECTIONS.map(s=>(
+            <button key={s.key} style={pillStyle(section===s.key)} onClick={()=>setSection(s.key)}>{s.label}</button>
+          ))}
+        </div>
       </div>
       <div style={{padding:'12px 12px 0'}}>
         {section==='standings' && <StandingsSection standings={standings} loading={loadingMap.standings} C={C} league={league} setLeague={setLeague}/>}
