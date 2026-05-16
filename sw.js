@@ -1,9 +1,9 @@
-const CACHE = 'cubs-tix-v33';
+const CACHE = 'cubs-tix-v36';
 const PRECACHE = [
   './',
   './index.html',
   './styles.css',
-  './app.js?v=33',
+  './app.js?v=36',
   './images.js',
   './icon-192.png',
   './icon-512.png',
