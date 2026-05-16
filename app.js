@@ -1921,6 +1921,8 @@ function StandingsTab() {
       const games = json.dates?.[0]?.games||[];
       setScores(games.map(g=>({
         gamePk:    g.gamePk,
+        awayId:    g.teams.away.team.id,
+        homeId:    g.teams.home.team.id,
         away:      g.teams.away.team.abbreviation,
         home:      g.teams.home.team.abbreviation,
         awayName:  g.teams.away.team.name || g.teams.away.team.teamName,
