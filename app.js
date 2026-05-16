@@ -1757,9 +1757,10 @@ function ScoresSection({ scores, loading, C, yesterday }) {
     );
   }
 
+  const isCubsGame = g => Number(g.awayId)===112||Number(g.homeId)===112||(g.awayName||'').includes('Cubs')||(g.homeName||'').includes('Cubs');
   const sorted = [...scores].sort((a,b) => {
-    const ac = a.awayId===112||a.homeId===112;
-    const bc = b.awayId===112||b.homeId===112;
+    const ac = isCubsGame(a);
+    const bc = isCubsGame(b);
     return ac&&!bc ? -1 : bc&&!ac ? 1 : 0;
   });
 
@@ -1776,9 +1777,10 @@ function TodaySection({ games, loading, C, today }) {
   if (!games) return null;
   if (games.length === 0) return <div style={{textAlign:'center',padding:'40px',color:C.muted,fontSize:14}}>No games today</div>;
 
+  const isCubsGame = g => Number(g.awayId)===112||Number(g.homeId)===112||(g.away||'').includes('CHC')||(g.home||'').includes('CHC');
   const sorted = [...games].sort((a,b) => {
-    const ac = a.awayId===112||a.homeId===112;
-    const bc = b.awayId===112||b.homeId===112;
+    const ac = isCubsGame(a);
+    const bc = isCubsGame(b);
     return ac&&!bc ? -1 : bc&&!ac ? 1 : 0;
   });
 
