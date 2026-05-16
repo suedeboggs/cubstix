@@ -1758,11 +1758,9 @@ function ScoresSection({ scores, loading, C, yesterday }) {
   }
 
   const isCubsGame = g => Number(g.awayId)===112||Number(g.homeId)===112||(g.awayName||'').includes('Cubs')||(g.homeName||'').includes('Cubs');
-  const sorted = [...scores].sort((a,b) => {
-    const ac = isCubsGame(a);
-    const bc = isCubsGame(b);
-    return ac&&!bc ? -1 : bc&&!ac ? 1 : 0;
-  });
+  const cubsFirst = scores.filter(isCubsGame);
+  const rest = scores.filter(g => !isCubsGame(g));
+  const sorted = [...cubsFirst, ...rest];
 
   return (
     <div>
@@ -1793,11 +1791,11 @@ function TodaySection({ games, loading, C, today }) {
         const isFinal = g.status==='Final';
         const showScore = isLive || isFinal;
         return (
-          <div key={g.gamePk} style={{marginBottom:10, padding:'11px 12px', borderRadius:8, background:isCubsGame?`${C.blue}15`:C.cream2, border:`1px solid ${isCubsGame?C.blue:C.border}`}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div key={g.gamePk} style={{marginBottom:10, borderRadius:8, overflow:'hidden', background:isCubsGame?`${C.blue}15`:C.cream2, border:`1px solid ${isCubsGame?C.blue:C.border}`}}>
+            <div style={{padding:'11px 12px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div style={{flex:1, minWidth:0}}>
-                {[{id:g.awayId, prob:g.awayProb, score:g.awayScore, won:g.awayScore>g.homeScore},
-                  {id:g.homeId, prob:g.homeProb, score:g.homeScore, won:g.homeScore>g.awayScore}].map((side,si) => (
+                {[{id:g.awayId, name:g.awayName, prob:g.awayProb, score:g.awayScore, won:g.awayScore>g.homeScore},
+                  {id:g.homeId, name:g.homeName, prob:g.homeProb, score:g.homeScore, won:g.homeScore>g.awayScore}].map((side,si) => (
                   <div key={si} style={{display:'flex', alignItems:'center', gap:10, marginBottom:si===0?6:0}}>
                     <img src={`https://www.mlbstatic.com/team-logos/${side.id}.svg`} style={{width:28,height:28,objectFit:'contain',flexShrink:0}} alt=""/>
                     {side.prob && (
@@ -1812,13 +1810,47 @@ function TodaySection({ games, loading, C, today }) {
               </div>
               <div style={{flexShrink:0, marginLeft:12, textAlign:'right'}}>
                 {isLive
-                  ? <span style={{fontSize:12, color:C.red, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.1em'}}>● LIVE</span>
+                  ? <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:12, color:C.red, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.1em'}}>● LIVE</div>
+                      {g.currentInning && <div style={{fontSize:10, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}>{g.inningHalf} {g.currentInning}</div>}
+                    </div>
                   : isFinal
                     ? <span style={{fontSize:11, color:C.muted, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.08em'}}>FINAL</span>
                     : <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}>{g.gameTime}</span>
                 }
               </div>
             </div>
+            {showScore && g.innings.length > 0 && (
+              <div style={{overflowX:'auto', WebkitOverflowScrolling:'touch', borderTop:`1px solid ${isCubsGame?C.blue+'40':C.border}`}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:11, fontFamily:"'Montserrat',sans-serif", minWidth:300}}>
+                  <thead>
+                    <tr style={{background:C.cream3}}>
+                      <th style={{padding:'4px 8px', textAlign:'left', color:C.muted, fontWeight:600, fontSize:10, minWidth:80}}>TEAM</th>
+                      {g.innings.map((_,i)=><th key={i} style={{padding:'4px 3px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10, minWidth:18}}>{i+1}</th>)}
+                      <th style={{padding:'4px 6px', textAlign:'center', color:C.ink, fontWeight:700, fontSize:10, borderLeft:`1px solid ${C.border}`}}>R</th>
+                      <th style={{padding:'4px 5px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10}}>H</th>
+                      <th style={{padding:'4px 5px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10}}>E</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{background:C.cream2}}>
+                      <td style={{padding:'5px 8px', fontWeight:700, color:isFinal&&g.awayScore>g.homeScore?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.awayName}</td>
+                      {g.innings.map((inn,i)=><td key={i} style={{padding:'5px 3px', textAlign:'center', color:C.ink}}>{inn.away?.runs??''}</td>)}
+                      <td style={{padding:'5px 6px', textAlign:'center', fontWeight:700, color:isFinal&&g.awayScore>g.homeScore?C.blue:C.ink, borderLeft:`1px solid ${C.border}`}}>{g.awayScore}</td>
+                      <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.awayHits}</td>
+                      <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.awayErrors}</td>
+                    </tr>
+                    <tr style={{borderTop:`1px solid ${C.border}`}}>
+                      <td style={{padding:'5px 8px', fontWeight:700, color:isFinal&&g.homeScore>g.awayScore?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.homeName}</td>
+                      {g.innings.map((inn,i)=><td key={i} style={{padding:'5px 3px', textAlign:'center', color:C.ink}}>{inn.home?.runs??''}</td>)}
+                      <td style={{padding:'5px 6px', textAlign:'center', fontWeight:700, color:isFinal&&g.homeScore>g.awayScore?C.blue:C.ink, borderLeft:`1px solid ${C.border}`}}>{g.homeScore}</td>
+                      <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.homeHits}</td>
+                      <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.homeErrors}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         );
       })}
@@ -1952,11 +1984,20 @@ function StandingsTab() {
         homeId:   g.teams.home.team.id,
         away:     g.teams.away.team.abbreviation,
         home:     g.teams.home.team.abbreviation,
+        awayName: g.teams.away.team.name || g.teams.away.team.teamName,
+        homeName: g.teams.home.team.name || g.teams.home.team.teamName,
         awayScore: g.teams.away.score, homeScore: g.teams.home.score,
         awayProb:  g.teams.away.probablePitcher||null,
         homeProb:  g.teams.home.probablePitcher||null,
         status:    g.status.abstractGameState,
         gameTime:  g.gameDate ? new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET' : '',
+        innings:   g.linescore?.innings||[],
+        currentInning: g.linescore?.currentInning,
+        inningHalf: g.linescore?.inningHalf,
+        awayHits:   g.linescore?.teams?.away?.hits??'',
+        homeHits:   g.linescore?.teams?.home?.hits??'',
+        awayErrors: g.linescore?.teams?.away?.errors??'',
+        homeErrors: g.linescore?.teams?.home?.errors??'',
       })));
     } catch(e) { setTodayGames([]); }
     setLoad('today',false);
