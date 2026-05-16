@@ -601,6 +601,7 @@ const Icons = {
   Stats:    () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   Trophy:   () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>,
   Standings: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  BoxScore:  () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L22 12 L12 22 L2 12 Z"/><line x1="15" y1="7" x2="15" y2="17"/><line x1="9" y1="7" x2="15" y2="12"/><line x1="15" y1="12" x2="9" y2="17"/></svg>,
   Settings: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
 };
 
@@ -1775,10 +1776,16 @@ function TodaySection({ games, loading, C, today }) {
   if (!games) return null;
   if (games.length === 0) return <div style={{textAlign:'center',padding:'40px',color:C.muted,fontSize:14}}>No games today</div>;
 
+  const sorted = [...games].sort((a,b) => {
+    const ac = a.awayId===112||a.homeId===112;
+    const bc = b.awayId===112||b.homeId===112;
+    return ac&&!bc ? -1 : bc&&!ac ? 1 : 0;
+  });
+
   return (
     <div>
       <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.12em', color:C.muted, marginBottom:12, textAlign:'center'}}>{fmtDateLong(today)}</div>
-      {games.map(g => {
+      {sorted.map(g => {
         const isCubsGame = g.awayId===112||g.homeId===112;
         const isLive = g.status==='Live';
         const isFinal = g.status==='Final';
@@ -1846,6 +1853,7 @@ function StandingsTab() {
   const [todayGames,   setTodayGames]   = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [loadingMap,   setLoadingMap]   = useState({standings:false,leaders:false,scores:false,today:false,moves:false});
+  const [lastUpdated,  setLastUpdated]  = useState(null);
   const isAnyLoading = Object.values(loadingMap).some(Boolean);
 
   const { today, yesterday } = getMLBDates();
@@ -1966,7 +1974,18 @@ function StandingsTab() {
     if (scores)       fetchScores();
     if (todayGames)   fetchToday();
     if (transactions) fetchTransactions();
+    // Stamp time after all kicks off (individual fetches update it on settle)
   };
+
+  // Stamp last-updated time whenever all fetches finish
+  const prevLoadingRef = useRef(false);
+  useEffect(() => {
+    const anyNow = Object.values(loadingMap).some(Boolean);
+    if (prevLoadingRef.current && !anyNow) {
+      setLastUpdated(new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}));
+    }
+    prevLoadingRef.current = anyNow;
+  }, [loadingMap]);
 
   useEffect(() => { fetchStandings(); }, []);
   useEffect(() => {
@@ -1993,31 +2012,41 @@ function StandingsTab() {
   });
 
   return (
-    <div style={{paddingBottom:16}}>
-      <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px', borderBottom:`1px solid ${C.border}`}}>
-        <button
-          onClick={handleRefresh}
-          disabled={isAnyLoading}
-          style={{
-            flexShrink:0, padding:'7px 10px', borderRadius:8,
-            border:`1.5px solid ${C.green}`, background:'transparent',
-            color:C.green, cursor:'pointer',
-            fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.1em',
-            opacity: isAnyLoading ? 0.5 : 1,
-          }}
-        >{isAnyLoading ? '…' : '↻ Refresh'}</button>
-        <div style={{display:'flex', flex:1}}>
-          {SECTIONS.map(s=>(
-            <button key={s.key} style={pillStyle(section===s.key)} onClick={()=>setSection(s.key)}>{s.label}</button>
-          ))}
-        </div>
+    <div style={{paddingBottom:24}}>
+      {/* Section pill nav */}
+      <div style={{display:'flex', padding:'8px 10px', borderBottom:`1px solid ${C.border}`}}>
+        {SECTIONS.map(s=>(
+          <button key={s.key} style={pillStyle(section===s.key)} onClick={()=>setSection(s.key)}>{s.label}</button>
+        ))}
       </div>
+
+      {/* Section content */}
       <div style={{padding:'12px 12px 0'}}>
         {section==='standings' && <StandingsSection standings={standings} loading={loadingMap.standings} C={C} league={league} setLeague={setLeague}/>}
         {section==='leaders'   && <LeadersSection   leaders={leaders}     loading={loadingMap.leaders}   C={C}/>}
         {section==='scores'    && <ScoresSection     scores={scores}       loading={loadingMap.scores}    C={C} yesterday={yesterday}/>}
         {section==='today'     && <TodaySection      games={todayGames}    loading={loadingMap.today}     C={C} today={today}/>}
         {section==='moves'     && <MovesSection      transactions={transactions} loading={loadingMap.moves} C={C} yesterday={yesterday}/>}
+      </div>
+
+      {/* Refresh footer */}
+      <div style={{padding:'16px 12px 0', display:'flex', flexDirection:'column', alignItems:'center', gap:6}}>
+        <button
+          onClick={handleRefresh}
+          disabled={isAnyLoading}
+          style={{
+            padding:'10px 28px', borderRadius:8,
+            border:`1.5px solid ${C.green}`, background:'transparent',
+            color:C.green, cursor:'pointer',
+            fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.12em',
+            opacity: isAnyLoading ? 0.5 : 1,
+          }}
+        >{isAnyLoading ? 'Updating…' : '↻ Refresh'}</button>
+        {lastUpdated && (
+          <div style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}>
+            Last updated {lastUpdated}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2699,7 +2728,7 @@ function App() {
     ['schedule','Schedule',Icons.Schedule],
     ['stats','Stats',Icons.Stats],
     ['board','Leaderboard',Icons.Trophy],
-    ['standings','Standings',Icons.Standings],
+    ['standings','Box Score',Icons.BoxScore],
     ['roster','Settings',Icons.Settings],
   ];
 
