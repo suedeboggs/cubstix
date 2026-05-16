@@ -1479,131 +1479,495 @@ const COL_HDR = {
   letterSpacing:'0.12em', padding:'8px 6px', textAlign:'center'
 };
 
-function StandingsTab() {
-  const C = React.useContext(ThemeContext);
-  const [rows, setRows]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
-  const [updated, setUpdated] = useState(null);
+// MLB division IDs
+const MLB_DIVS = {
+  AL: [
+    { id:201, name:'AL East'    },
+    { id:202, name:'AL Central' },
+    { id:200, name:'AL West'    },
+  ],
+  NL: [
+    { id:204, name:'NL East'    },
+    { id:205, name:'NL Central' },
+    { id:203, name:'NL West'    },
+  ],
+};
 
-  const parseTeamRecord = (r) => ({
-    teamId:  r.team.id,
-    name:    NL_CENTRAL_IDS[r.team.id]?.name  || r.team.teamName || r.team.name,
-    abbr:    NL_CENTRAL_IDS[r.team.id]?.abbr  || r.team.abbreviation,
+// Transaction type → badge color
+const TX_COLORS = {
+  'Designated for Assignment': '#CC3433',
+  'Released':                  '#CC3433',
+  'Signed as Free Agent':      '#285943',
+  'Status Change':             '#1A4AAA',
+  'Assigned':                  '#5B6A8A',
+  'Selected':                  '#285943',
+  'Trade':                     '#8B4513',
+};
 
-    w:       r.wins ?? 0,
-    l:       r.losses ?? 0,
-    pct:     r.winningPercentage ?? '.000',
-    gb:      r.divisionGamesBack ?? '-',
-    streak:  r.streak?.streakCode || '—',
-    last10:  (() => { const s = r.records?.splitRecords?.find(x=>x.type==='lastTen'); return s ? `${s.wins}-${s.losses}` : '—'; })(),
-    isCubs:  r.team.id === 112,
-  });
+// Stat leader categories
+const LEADER_CATS = [
+  { key:'battingAverage',   label:'Batting Average', group:'bat' },
+  { key:'homeRuns',         label:'Home Runs',       group:'bat' },
+  { key:'rbi',              label:'RBI',             group:'bat' },
+  { key:'stolenBases',      label:'Stolen Bases',    group:'bat' },
+  { key:'wins',             label:'Wins',            group:'pit' },
+  { key:'earnedRunAverage', label:'ERA',             group:'pit' },
+  { key:'strikeOuts',       label:'Strikeouts',      group:'pit' },
+  { key:'saves',            label:'Saves',           group:'pit' },
+];
 
-  const PRESEASON_ROWS = Object.entries(NL_CENTRAL_IDS).map(([id, info]) => ({
-    teamId: Number(id), name: info.name, abbr: info.abbr, w:0, l:0, pct:'.000', gb:'-', streak:'—', last10:'—', isCubs: Number(id)===112,
-  }));
+function fmtDateYMD(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
-  const fetchStandings = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const season = new Date().getFullYear();
-      // Try multiple standing types in order of preference
-      const types = ['regularSeason', 'springTraining', 'preseason'];
-      let found = null;
-      for (const sType of types) {
-        const res = await fetch(
-          `https://statsapi.mlb.com/api/v1/standings?leagueId=104&season=${season}&standingsTypes=${sType}&hydrate=team,division`
-        );
-        const data = await res.json();
-        const div = data.records?.find(r => r.division?.id === 205);
-        if (div && div.teamRecords?.length > 0) { found = div; break; }
-      }
-      if (found) {
-        const sorted = [...found.teamRecords].sort((a,b) => {
-          // Sort by wins desc if season started, else by team name
-          if (a.wins === 0 && b.wins === 0 && a.losses === 0 && b.losses === 0) {
-            return (NL_CENTRAL_IDS[a.team.id]?.name||'').localeCompare(NL_CENTRAL_IDS[b.team.id]?.name||'');
-          }
-          return (a.divisionRank||99) - (b.divisionRank||99);
-        });
-        setRows(sorted.map(parseTeamRecord));
-      } else {
-        // Preseason — show all teams at 0-0 alphabetically
-        setRows(PRESEASON_ROWS.sort((a,b)=>a.name.localeCompare(b.name)));
-      }
-      setUpdated(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
-    } catch(e) {
-      // Network error — still show teams at 0-0 rather than error message
-      setRows(PRESEASON_ROWS.sort((a,b)=>a.name.localeCompare(b.name)));
-      setUpdated('Offline');
-    }
-    setLoading(false);
-  }, []);
+function getMLBDates() {
+  const et = new Date(new Date().toLocaleString('en-US', {timeZone:'America/New_York'}));
+  const yd = new Date(et); yd.setDate(yd.getDate() - 1);
+  return { today: fmtDateYMD(et), yesterday: fmtDateYMD(yd) };
+}
 
-  useEffect(() => { fetchStandings(); }, [fetchStandings]);
+// ── Standings sub-components ────────────────────────────────────────────────
 
+function DivTable({ rows, label, C }) {
+  const cols = '1fr 30px 30px 40px 36px 38px 38px';
+  const hdr = { background:C.green, color:'rgba(255,255,255,0.65)', fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.12em', padding:'6px 4px', textAlign:'center' };
   return (
-    <div style={{padding:'14px 12px 16px'}}>
-      {/* Scoreboard header */}
-      <div style={{background:C.green,borderRadius:'6px 6px 0 0',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div style={{fontSize:15,fontWeight:700,color:C.cream,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.2em'}}>NL CENTRAL</div>
-        <button onClick={fetchStandings} style={{background:'none',border:'none',color:'rgba(248,246,242,0.7)',fontSize:16,cursor:'pointer',padding:'2px 6px'}}>↻</button>
+    <div style={{marginBottom:14}}>
+      <div style={{background:C.green, borderRadius:'6px 6px 0 0', padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:'rgba(255,255,255,0.65)'}}>
+        {label}
       </div>
-
-      {/* Column headers */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 36px 36px 44px 44px 44px 44px',background:C.green,borderTop:'1px solid rgba(255,255,255,0.15)'}}>
-        <div style={{...COL_HDR,textAlign:'left',paddingLeft:10}}>TEAM</div>
-        <div style={COL_HDR}>W</div>
-        <div style={COL_HDR}>L</div>
-        <div style={COL_HDR}>PCT</div>
-        <div style={COL_HDR}>GB</div>
-        <div style={COL_HDR}>L10</div>
-        <div style={COL_HDR}>STK</div>
+      <div style={{display:'grid', gridTemplateColumns:cols, background:C.green, borderTop:'1px solid rgba(255,255,255,0.12)'}}>
+        <div style={{...hdr, textAlign:'left', paddingLeft:10}}>TEAM</div>
+        {['W','L','PCT','GB','L10','STK'].map(h => <div key={h} style={hdr}>{h}</div>)}
       </div>
-
-      {/* Rows */}
-      <div style={{background:C.green,borderTop:'1px solid rgba(255,255,255,0.12)',borderRadius:'0 0 6px 6px',overflow:'hidden'}}>
-        {loading && (
-          <div style={{padding:'32px',textAlign:'center',background:C.green}}><Spinner size={20} color='rgba(255,255,255,0.7)'/></div>
-        )}
-
-        {!loading && rows.map((row, i) => {
-          const isCubs = row.isCubs;
-          const rowBg = isCubs ? 'rgba(255,255,255,0.18)' : (i%2===0 ? 'rgba(255,255,255,0.07)' : 'transparent');
+      <div style={{background:C.green, borderRadius:'0 0 6px 6px', overflow:'hidden'}}>
+        {rows.map((row, i) => {
+          const ic = row.isCubs;
           return (
             <div key={row.teamId} style={{
-              display:'grid', gridTemplateColumns:'1fr 36px 36px 44px 44px 44px 44px',
-              background: rowBg,
-              borderBottom: i < rows.length-1 ? '1px solid rgba(255,255,255,0.12)' : 'none',
+              display:'grid', gridTemplateColumns:cols,
+              background: ic ? 'rgba(255,255,255,0.18)' : (i%2===0 ? 'rgba(255,255,255,0.06)' : 'transparent'),
+              borderBottom: i < rows.length-1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
             }}>
-              {/* Team */}
-              <div style={{display:'flex',alignItems:'center',padding:'10px 12px'}}>
-                <div style={{fontSize:17,fontWeight:700,color: isCubs ? '#fff' : 'rgba(255,255,255,0.85)',fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.05em'}}>{row.name}</div>
+              <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px'}}>
+                <img src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`} style={{width:18,height:18,objectFit:'contain',flexShrink:0}} alt=""/>
+                <span style={{fontSize:13, fontWeight:700, color: ic?'#fff':'rgba(255,255,255,0.88)', fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.05em'}}>{row.abbr}</span>
               </div>
-              {/* Stats */}
               {[row.w, row.l, row.pct, row.gb==='0.0'?'-':row.gb, row.last10, row.streak].map((val,ci) => (
                 <div key={ci} style={{
-                  display:'flex',alignItems:'center',justifyContent:'center',
-                  fontSize: ci<2 ? 14 : 11,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize: ci<2 ? 13 : 11,
                   fontWeight: ci<2 ? 700 : 400,
-                  color: isCubs ? '#fff' : (ci<2 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)'),
+                  color: ic ? '#fff' : (ci<2 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)'),
                   fontFamily: ci<2 ? "'Bebas Neue',sans-serif" : "'Montserrat',sans-serif",
-                  padding:'4px 2px',
-                }}>
-                  {val}
-                </div>
+                  padding:'3px 2px',
+                }}>{val}</div>
               ))}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
 
-      {updated && (
-        <div style={{fontSize:12,color:C.green,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.08em',marginTop:10,textAlign:'center'}}>
-          UPDATED · {updated}
+function WildCardTable({ leagueKey, standings, C }) {
+  const divIds = MLB_DIVS[leagueKey].map(d => d.id);
+  const allTeams = divIds.flatMap(id => (standings[id] || []).map((t,i) => ({...t, divRank:i})));
+  const wcTeams = allTeams.filter(t => t.divRank > 0).sort((a,b) => b.w-a.w || a.l-b.l).slice(0,8);
+  const cols = '1fr 30px 30px 40px 38px 38px';
+  const hdr = { background:C.green, color:'rgba(255,255,255,0.65)', fontFamily:"'Bebas Neue',sans-serif", fontSize:11, letterSpacing:'0.12em', padding:'6px 4px', textAlign:'center' };
+  return (
+    <div style={{marginBottom:14}}>
+      <div style={{background:C.green, borderRadius:'6px 6px 0 0', padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:'rgba(255,255,255,0.65)'}}>
+        {leagueKey} WILD CARD
+      </div>
+      <div style={{display:'grid', gridTemplateColumns:cols, background:C.green, borderTop:'1px solid rgba(255,255,255,0.12)'}}>
+        <div style={{...hdr, textAlign:'left', paddingLeft:10}}>TEAM</div>
+        {['W','L','PCT','GB','L10'].map(h => <div key={h} style={hdr}>{h}</div>)}
+      </div>
+      <div style={{background:C.green, borderRadius:'0 0 6px 6px', overflow:'hidden'}}>
+        {wcTeams.map((row,i) => {
+          const ic = row.isCubs;
+          return (
+            <div key={row.teamId}>
+              {i === 3 && <div style={{height:2, background:'rgba(255,255,255,0.3)'}}/>}
+              <div style={{
+                display:'grid', gridTemplateColumns:cols,
+                background: ic ? 'rgba(255,255,255,0.18)' : (i%2===0 ? 'rgba(255,255,255,0.06)' : 'transparent'),
+                borderBottom: i < wcTeams.length-1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+              }}>
+                <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px'}}>
+                  <img src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`} style={{width:18,height:18,objectFit:'contain',flexShrink:0}} alt=""/>
+                  <span style={{fontSize:13, fontWeight:700, color: ic?'#fff':'rgba(255,255,255,0.88)', fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.05em'}}>{row.abbr}</span>
+                </div>
+                {[row.w, row.l, row.pct, row.gb==='0.0'?'-':row.gb, row.last10].map((val,ci) => (
+                  <div key={ci} style={{
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize: ci<2 ? 13 : 11,
+                    fontWeight: ci<2 ? 700 : 400,
+                    color: ic ? '#fff' : (ci<2 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)'),
+                    fontFamily: ci<2 ? "'Bebas Neue',sans-serif" : "'Montserrat',sans-serif",
+                    padding:'3px 2px',
+                  }}>{val}</div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Section renderers ────────────────────────────────────────────────────────
+
+function StandingsSection({ standings, loading, C, league, setLeague }) {
+  if (loading) return <div style={{textAlign:'center',padding:'40px 0'}}><Spinner size={20} color={C.blue}/></div>;
+  if (!standings) return null;
+  const btnStyle = (active) => ({
+    flex:1, padding:'8px 0', border:'none', borderRadius:6, cursor:'pointer',
+    background: active ? C.green : C.cream2,
+    color: active ? C.cream : C.muted,
+    fontFamily:"'Bebas Neue',sans-serif", fontSize:15, letterSpacing:'0.15em',
+  });
+  return (
+    <div>
+      <div style={{display:'flex', gap:6, marginBottom:14}}>
+        <button style={btnStyle(league==='AL')} onClick={()=>setLeague('AL')}>AMERICAN LEAGUE</button>
+        <button style={btnStyle(league==='NL')} onClick={()=>setLeague('NL')}>NATIONAL LEAGUE</button>
+      </div>
+      {MLB_DIVS[league].map(d => (
+        <DivTable key={d.id} rows={standings[d.id]||[]} label={d.name} C={C}/>
+      ))}
+      <WildCardTable leagueKey={league} standings={standings} C={C}/>
+    </div>
+  );
+}
+
+function LeadersSection({ leaders, loading, C }) {
+  if (loading) return <div style={{textAlign:'center',padding:'40px 0'}}><Spinner size={20} color={C.blue}/></div>;
+  if (!leaders) return null;
+  function LeaderBlock({ cat }) {
+    const rows = leaders[cat.key] || [];
+    return (
+      <div style={{marginBottom:12}}>
+        <div style={{background:C.green, borderRadius:'6px 6px 0 0', padding:'7px 12px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'0.15em', color:C.cream}}>{cat.label}</div>
+        <div style={{background:C.cream2, borderRadius:'0 0 6px 6px', overflow:'hidden'}}>
+          {rows.length === 0 && <div style={{padding:'12px', color:C.muted, fontSize:13, textAlign:'center'}}>No data</div>}
+          {rows.map((r,i) => (
+            <div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', borderBottom: i<rows.length-1?`1px solid ${C.border}`:'none', background:i===0?`${C.blue}10`:'transparent'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8}}>
+                <span style={{width:20, height:20, borderRadius:'50%', background:i===0?C.blue:C.cream3, color:i===0?'#fff':C.muted, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", flexShrink:0}}>{i+1}</span>
+                <div>
+                  <div style={{fontSize:14, fontWeight:700, color:C.ink, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.04em'}}>{r.name}</div>
+                  <div style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}>{r.team}</div>
+                </div>
+              </div>
+              <div style={{fontSize:18, fontWeight:800, color:C.blue, fontFamily:"'Bebas Neue',sans-serif"}}>{r.value}</div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+    );
+  }
+  const bat = LEADER_CATS.filter(c=>c.group==='bat');
+  const pit = LEADER_CATS.filter(c=>c.group==='pit');
+  return (
+    <div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.2em', color:C.muted, marginBottom:8}}>BATTING</div>
+      {bat.map(c=><LeaderBlock key={c.key} cat={c}/>)}
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.2em', color:C.muted, marginBottom:8, marginTop:10}}>PITCHING</div>
+      {pit.map(c=><LeaderBlock key={c.key} cat={c}/>)}
+    </div>
+  );
+}
+
+function ScoresSection({ scores, loading, C, yesterday }) {
+  if (loading) return <div style={{textAlign:'center',padding:'40px 0'}}><Spinner size={20} color={C.blue}/></div>;
+  if (!scores) return null;
+  if (scores.length === 0) return <div style={{textAlign:'center',padding:'40px',color:C.muted,fontSize:14}}>No games played</div>;
+
+  function BoxScore({ g }) {
+    const awayWon = g.awayScore > g.homeScore;
+    const homeWon = g.homeScore > g.awayScore;
+    const innings = g.innings || [];
+    return (
+      <div style={{marginBottom:10, borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}`}}>
+        <div style={{background:C.green, padding:'7px 12px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.08em', color:C.cream}}>
+            {awayWon?g.away:g.home} {awayWon?g.awayScore:g.homeScore}, {awayWon?g.home:g.away} {awayWon?g.homeScore:g.awayScore}
+          </span>
+          <span style={{fontSize:10, color:'rgba(255,255,255,0.55)', fontFamily:"'Montserrat',sans-serif"}}>{g.status==='Final'?'FINAL':g.status}</span>
+        </div>
+        {innings.length > 0 && (
+          <div style={{overflowX:'auto', WebkitOverflowScrolling:'touch'}}>
+            <table style={{width:'100%', borderCollapse:'collapse', fontSize:11, fontFamily:"'Montserrat',sans-serif", minWidth:300}}>
+              <thead>
+                <tr style={{background:C.cream3}}>
+                  <th style={{padding:'4px 8px', textAlign:'left', color:C.muted, fontWeight:600, fontSize:10, minWidth:38}}>TEAM</th>
+                  {innings.map((_,i)=><th key={i} style={{padding:'4px 3px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10, minWidth:18}}>{i+1}</th>)}
+                  <th style={{padding:'4px 6px', textAlign:'center', color:C.ink, fontWeight:700, fontSize:10, borderLeft:`1px solid ${C.border}`}}>R</th>
+                  <th style={{padding:'4px 5px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10}}>H</th>
+                  <th style={{padding:'4px 5px', textAlign:'center', color:C.muted, fontWeight:600, fontSize:10}}>E</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{background:C.cream2}}>
+                  <td style={{padding:'5px 8px', fontWeight:700, color:awayWon?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.away}</td>
+                  {innings.map((inn,i)=><td key={i} style={{padding:'5px 3px', textAlign:'center', color:C.ink}}>{inn.away?.runs??''}</td>)}
+                  <td style={{padding:'5px 6px', textAlign:'center', fontWeight:700, color:awayWon?C.blue:C.ink, borderLeft:`1px solid ${C.border}`}}>{g.awayScore}</td>
+                  <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.awayHits}</td>
+                  <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.awayErrors}</td>
+                </tr>
+                <tr style={{borderTop:`1px solid ${C.border}`}}>
+                  <td style={{padding:'5px 8px', fontWeight:700, color:homeWon?C.blue:C.ink, fontSize:12, fontFamily:"'Bebas Neue',sans-serif"}}>{g.home}</td>
+                  {innings.map((inn,i)=><td key={i} style={{padding:'5px 3px', textAlign:'center', color:C.ink}}>{inn.home?.runs??''}</td>)}
+                  <td style={{padding:'5px 6px', textAlign:'center', fontWeight:700, color:homeWon?C.blue:C.ink, borderLeft:`1px solid ${C.border}`}}>{g.homeScore}</td>
+                  <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.homeHits}</td>
+                  <td style={{padding:'5px 5px', textAlign:'center', color:C.muted}}>{g.homeErrors}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        {(g.winner || g.loser) && (
+          <div style={{padding:'5px 12px', background:C.cream2, display:'flex', flexWrap:'wrap', gap:'0 14px', borderTop:`1px solid ${C.border}`}}>
+            {g.winner && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.green}}>W</b> {g.winner}</span>}
+            {g.loser  && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.red}}>L</b> {g.loser}</span>}
+            {g.save   && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.blue}}>Sv</b> {g.save}</span>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const sorted = [...scores].sort((a,b) => {
+    const ac = a.away==='CHC'||a.home==='CHC';
+    const bc = b.away==='CHC'||b.home==='CHC';
+    return ac&&!bc ? -1 : bc&&!ac ? 1 : 0;
+  });
+
+  return (
+    <div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.18em', color:C.muted, marginBottom:10}}>{yesterday} · {scores.length} GAMES</div>
+      {sorted.map(g=><BoxScore key={g.gamePk} g={g}/>)}
+    </div>
+  );
+}
+
+function TodaySection({ games, loading, C, today }) {
+  if (loading) return <div style={{textAlign:'center',padding:'40px 0'}}><Spinner size={20} color={C.blue}/></div>;
+  if (!games) return null;
+  if (games.length === 0) return <div style={{textAlign:'center',padding:'40px',color:C.muted,fontSize:14}}>No games today</div>;
+
+  return (
+    <div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.18em', color:C.muted, marginBottom:10}}>{today} · {games.length} GAMES</div>
+      {games.map(g => {
+        const isCubsGame = g.away==='CHC'||g.home==='CHC';
+        const isLive = g.status==='Live';
+        const isFinal = g.status==='Final';
+        const showScore = isLive || isFinal;
+        return (
+          <div key={g.gamePk} style={{marginBottom:10, padding:'11px 12px', borderRadius:8, background:isCubsGame?`${C.blue}15`:C.cream2, border:`1px solid ${isCubsGame?C.blue:C.border}`}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <div style={{flex:1, minWidth:0}}>
+                {[{team:g.away, prob:g.awayProb, score:g.awayScore, won:g.awayScore>g.homeScore},
+                  {team:g.home, prob:g.homeProb, score:g.homeScore, won:g.homeScore>g.awayScore}].map((side,si) => (
+                  <div key={si} style={{display:'flex', alignItems:'center', gap:8, marginBottom:si===0?5:0}}>
+                    <span style={{fontSize:15, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.06em', color:isFinal&&side.won?C.blue:C.ink, minWidth:32, flexShrink:0}}>{side.team}</span>
+                    {side.prob && (
+                      <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                        {side.prob.fullName}
+                      </span>
+                    )}
+                    {showScore && <span style={{marginLeft:'auto', fontSize:16, fontWeight:800, fontFamily:"'Bebas Neue',sans-serif", color:isFinal&&side.won?C.blue:C.ink, flexShrink:0}}>{side.score}</span>}
+                  </div>
+                ))}
+              </div>
+              <div style={{flexShrink:0, marginLeft:10, textAlign:'right'}}>
+                {isLive
+                  ? <span style={{fontSize:12, color:C.red, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.1em'}}>● LIVE</span>
+                  : isFinal
+                    ? <span style={{fontSize:11, color:C.muted, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.08em'}}>FINAL</span>
+                    : <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}>{g.gameTime}</span>
+                }
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MovesSection({ transactions, loading, C, yesterday }) {
+  if (loading) return <div style={{textAlign:'center',padding:'40px 0'}}><Spinner size={20} color={C.blue}/></div>;
+  if (!transactions) return null;
+  if (transactions.length === 0) return <div style={{textAlign:'center',padding:'40px',color:C.muted,fontSize:14}}>No transactions</div>;
+  return (
+    <div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:12, letterSpacing:'0.18em', color:C.muted, marginBottom:10}}>{yesterday} · {transactions.length} TRANSACTIONS</div>
+      {transactions.map((t,i) => (
+        <div key={i} style={{marginBottom:8, padding:'10px 12px', borderRadius:8, background:C.cream2, border:`1px solid ${C.border}`}}>
+          <span style={{display:'inline-block', fontSize:10, fontWeight:700, fontFamily:"'Bebas Neue',sans-serif", letterSpacing:'0.08em', color:'#fff', background:TX_COLORS[t.type]||C.muted, borderRadius:4, padding:'2px 7px', marginBottom:5}}>{t.type}</span>
+          <div style={{fontSize:13, color:C.ink, fontFamily:"'Montserrat',sans-serif", lineHeight:1.4}}>{t.desc}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main StandingsTab ────────────────────────────────────────────────────────
+
+function StandingsTab() {
+  const C = React.useContext(ThemeContext);
+  const [section,  setSection]  = useState('standings');
+  const [league,   setLeague]   = useState('NL');
+  const [standings,    setStandings]    = useState(null);
+  const [leaders,      setLeaders]      = useState(null);
+  const [scores,       setScores]       = useState(null);
+  const [todayGames,   setTodayGames]   = useState(null);
+  const [transactions, setTransactions] = useState(null);
+  const [loadingMap,   setLoadingMap]   = useState({standings:false,leaders:false,scores:false,today:false,moves:false});
+
+  const { today, yesterday } = getMLBDates();
+  const setLoad = (key,val) => setLoadingMap(p=>({...p,[key]:val}));
+
+  const fetchStandings = useCallback(async () => {
+    setLoad('standings',true);
+    try {
+      const season = new Date().getFullYear();
+      const types = ['regularSeason','springTraining','preseason'];
+      let records = null;
+      for (const sType of types) {
+        const res = await fetch(`https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=${sType}&hydrate=team,division`);
+        const json = await res.json();
+        if (json.records?.some(r=>r.teamRecords?.some(t=>t.wins>0||t.losses>0))) { records=json.records; break; }
+        if (!records) records = json.records;
+      }
+      const byDiv = {};
+      for (const rec of (records||[])) {
+        const divId = rec.division?.id;
+        byDiv[divId] = (rec.teamRecords||[]).map(r => ({
+          teamId: r.team.id,
+          abbr:   r.team.abbreviation,
+          w:      r.wins??0, l: r.losses??0,
+          pct:    r.winningPercentage??'.000',
+          gb:     r.divisionGamesBack??'-',
+          streak: r.streak?.streakCode||'—',
+          last10: (()=>{const s=r.records?.splitRecords?.find(x=>x.type==='lastTen'); return s?`${s.wins}-${s.losses}`:'—';})(),
+          isCubs: r.team.id===112,
+        }));
+      }
+      setStandings(byDiv);
+    } catch(e) { setStandings({}); }
+    setLoad('standings',false);
+  }, []);
+
+  const fetchLeaders = useCallback(async () => {
+    setLoad('leaders',true);
+    try {
+      const season = new Date().getFullYear();
+      const cats = LEADER_CATS.map(c=>c.key).join(',');
+      const res = await fetch(`https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=${cats}&season=${season}&limit=5&sportId=1&statType=season`);
+      const json = await res.json();
+      const bycat = {};
+      for (const g of (json.leagueLeaders||[])) {
+        bycat[g.leaderCategory] = (g.leaders||[]).map(l=>({name:l.person?.fullName||'—', team:l.team?.abbreviation||'—', value:l.value??'—'}));
+      }
+      setLeaders(bycat);
+    } catch(e) { setLeaders({}); }
+    setLoad('leaders',false);
+  }, []);
+
+  const fetchScores = useCallback(async () => {
+    setLoad('scores',true);
+    try {
+      const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${yesterday}&hydrate=linescore,decisions`);
+      const json = await res.json();
+      const games = json.dates?.[0]?.games||[];
+      setScores(games.map(g=>({
+        gamePk: g.gamePk,
+        away: g.teams.away.team.abbreviation, home: g.teams.home.team.abbreviation,
+        awayScore: g.teams.away.score??null, homeScore: g.teams.home.score??null,
+        status: g.status.abstractGameState,
+        innings: g.linescore?.innings||[],
+        winner: g.decisions?.winner?.fullName, loser: g.decisions?.loser?.fullName, save: g.decisions?.save?.fullName,
+        awayHits: g.linescore?.teams?.away?.hits??'', homeHits: g.linescore?.teams?.home?.hits??'',
+        awayErrors: g.linescore?.teams?.away?.errors??'', homeErrors: g.linescore?.teams?.home?.errors??'',
+      })));
+    } catch(e) { setScores([]); }
+    setLoad('scores',false);
+  }, [yesterday]);
+
+  const fetchToday = useCallback(async () => {
+    setLoad('today',true);
+    try {
+      const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=probablePitcher,linescore`);
+      const json = await res.json();
+      const games = json.dates?.[0]?.games||[];
+      setTodayGames(games.map(g=>({
+        gamePk: g.gamePk,
+        away: g.teams.away.team.abbreviation, home: g.teams.home.team.abbreviation,
+        awayScore: g.teams.away.score, homeScore: g.teams.home.score,
+        awayProb: g.teams.away.probablePitcher||null, homeProb: g.teams.home.probablePitcher||null,
+        status: g.status.abstractGameState,
+        gameTime: g.gameDate ? new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET' : '',
+      })));
+    } catch(e) { setTodayGames([]); }
+    setLoad('today',false);
+  }, [today]);
+
+  const fetchTransactions = useCallback(async () => {
+    setLoad('moves',true);
+    try {
+      const res = await fetch(`https://statsapi.mlb.com/api/v1/transactions?sportId=1&startDate=${yesterday}&endDate=${yesterday}`);
+      const json = await res.json();
+      setTransactions((json.transactions||[]).map(t=>({type:t.typeDesc||t.typeCode||'', desc:t.description||''})));
+    } catch(e) { setTransactions([]); }
+    setLoad('moves',false);
+  }, [yesterday]);
+
+  // Load standings immediately; lazy-load everything else
+  useEffect(() => { fetchStandings(); }, []);
+  useEffect(() => {
+    if (section==='leaders'  && !leaders)      fetchLeaders();
+    if (section==='scores'   && !scores)       fetchScores();
+    if (section==='today'    && !todayGames)   fetchToday();
+    if (section==='moves'    && !transactions) fetchTransactions();
+  }, [section]);
+
+  const SECTIONS = [
+    {key:'standings', label:'Standings'},
+    {key:'leaders',   label:'Leaders'  },
+    {key:'scores',    label:'Scores'   },
+    {key:'today',     label:'Today'    },
+    {key:'moves',     label:'Moves'    },
+  ];
+
+  const pillStyle = (active) => ({
+    padding:'7px 12px', borderRadius:20, border:'none', cursor:'pointer', whiteSpace:'nowrap',
+    background: active ? C.blue : 'transparent',
+    color: active ? '#fff' : C.muted,
+    fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.1em',
+  });
+
+  return (
+    <div style={{paddingBottom:16}}>
+      <div style={{display:'flex', gap:4, overflowX:'auto', padding:'12px 12px 8px', borderBottom:`1px solid ${C.border}`, WebkitOverflowScrolling:'touch', scrollbarWidth:'none'}}>
+        {SECTIONS.map(s=>(
+          <button key={s.key} style={pillStyle(section===s.key)} onClick={()=>setSection(s.key)}>{s.label}</button>
+        ))}
+      </div>
+      <div style={{padding:'12px 12px 0'}}>
+        {section==='standings' && <StandingsSection standings={standings} loading={loadingMap.standings} C={C} league={league} setLeague={setLeague}/>}
+        {section==='leaders'   && <LeadersSection   leaders={leaders}     loading={loadingMap.leaders}   C={C}/>}
+        {section==='scores'    && <ScoresSection     scores={scores}       loading={loadingMap.scores}    C={C} yesterday={yesterday}/>}
+        {section==='today'     && <TodaySection      games={todayGames}    loading={loadingMap.today}     C={C} today={today}/>}
+        {section==='moves'     && <MovesSection      transactions={transactions} loading={loadingMap.moves} C={C} yesterday={yesterday}/>}
+      </div>
     </div>
   );
 }
