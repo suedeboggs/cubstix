@@ -1711,7 +1711,7 @@ function ScoresSection({ scores, loading, C, yesterday }) {
       <div style={{marginBottom:10, borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}`}}>
         <div style={{background:C.green, padding:'7px 12px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, letterSpacing:'0.08em', color:C.cream}}>
-            {awayWon?g.awayName:g.homeName} {awayWon?g.awayScore:g.homeScore}, {awayWon?g.homeName:g.awayName} {awayWon?g.homeScore:g.awayScore}
+            {g.awayName} @ {g.homeName}
           </span>
           <span style={{fontSize:10, color:'rgba(255,255,255,0.55)', fontFamily:"'Montserrat',sans-serif"}}>{g.status==='Final'?'FINAL':g.status}</span>
         </div>
@@ -1750,7 +1750,7 @@ function ScoresSection({ scores, loading, C, yesterday }) {
           <div style={{padding:'5px 12px', background:C.cream2, display:'flex', flexWrap:'wrap', gap:'0 14px', borderTop:`1px solid ${C.border}`}}>
             {g.winner && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.green}}>W</b> {g.winner}</span>}
             {g.loser  && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.red}}>L</b> {g.loser}</span>}
-            {g.save   && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.blue}}>Sv</b> {g.save}</span>}
+            {g.save   && <span style={{fontSize:11, color:C.muted, fontFamily:"'Montserrat',sans-serif"}}><b style={{color:C.blue}}>S</b> {g.save}</span>}
           </div>
         )}
       </div>
@@ -1758,8 +1758,8 @@ function ScoresSection({ scores, loading, C, yesterday }) {
   }
 
   const sorted = [...scores].sort((a,b) => {
-    const ac = a.away==='CHC'||a.home==='CHC';
-    const bc = b.away==='CHC'||b.home==='CHC';
+    const ac = a.awayId===112||a.homeId===112;
+    const bc = b.awayId===112||b.homeId===112;
     return ac&&!bc ? -1 : bc&&!ac ? 1 : 0;
   });
 
